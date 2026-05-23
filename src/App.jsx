@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { isStudentAtRisk, load, normalizeData, save } from "./utils/helpers";
+import { Search } from "./components/search";
 import { Dashboard } from "./components/Dashboard";
 import { Students } from "./components/Students";
 import { ExcelUpload } from "./components/ExcelUpload";
@@ -7,6 +8,7 @@ import { Reports } from "./components/Reports";
 import { Courses } from "./components/Courses";
 import { MarksEntry } from "./components/MarksEntry";
 import { CLASS_MAP } from "./utils/constants";
+
 import "./App.css";
 import logo from "./assets/reva-2.png";
 
@@ -37,6 +39,7 @@ export default function App() {
   };
 
   const nav = [
+    { id: "search", icon: "🔍", label: "Search" },
     { id: "dashboard", icon: "📊", label: "Dashboard" },
     { id: "students", icon: "🎓", label: "Students" },
     { id: "courses", icon: "📚", label: "Courses" },
@@ -190,6 +193,9 @@ export default function App() {
         </header>
 
         <div className="content-area">
+          {tab === "search" &&
+            <Search data={data} update={update} notify={notify}
+              selClass={selClass} classes={classes} />}
           {tab === "dashboard" &&
             <Dashboard data={data} selClass={selClass} classes={classes} />}
           {tab === "students" &&

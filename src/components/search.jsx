@@ -8,7 +8,7 @@ import {
 } from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
-export function Students({ data, update, notify, selClass, classes }) {
+export function Search({ data, update, notify, selClass, classes }) {
     const blank = {
         name: "",
         SRN: "",
