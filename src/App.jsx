@@ -3,8 +3,6 @@ import { styles } from "./utils/constants";
 import { load, save } from "./utils/helpers";
 import { Dashboard } from "./components/Dashboard";
 import { Students } from "./components/Students";
-import { Courses } from "./components/Courses";
-import { MarksEntry } from "./components/MarksEntry";
 import { ExcelUpload } from "./components/ExcelUpload";
 import { Reports } from "./components/Reports";
 
@@ -29,8 +27,6 @@ export default function App() {
   const nav = [
     { id: "dashboard", icon: "📊", label: "Dashboard" },
     { id: "students",  icon: "🎓", label: "Students" },
-    { id: "courses",   icon: "📚", label: "Courses" },
-    { id: "marks",     icon: "✏️",  label: "Marks Entry" },
     { id: "upload",    icon: "⬆️",  label: "Excel Upload" },
     { id: "reports",   icon: "📄", label: "Reports" },
   ];
@@ -43,7 +39,7 @@ export default function App() {
           <span style={styles.brandIcon}>🏛</span>
           <div>
             <div style={styles.brandTitle}>AcadMarks</div>
-            <div style={styles.brandSub}>Academic Head Portal</div>
+            <div style={styles.brandSub}>IA Tracking Portal</div>
           </div>
         </div>
         <nav style={styles.nav}>
@@ -57,7 +53,7 @@ export default function App() {
         </nav>
         <div style={styles.sideStats}>
           <div style={styles.statPill}><b>{data.students.length}</b> Students</div>
-          <div style={styles.statPill}><b>{data.courses.length}</b> Courses</div>
+          <div style={styles.statPill}><b>{data.students.filter(s => (s.iaI || 0) < 9 || (s.iaII || 0) < 9).length}</b> At Risk</div>
         </div>
       </aside>
 
@@ -68,15 +64,13 @@ export default function App() {
             {nav.find(n => n.id === tab)?.icon} {nav.find(n => n.id === tab)?.label}
           </h1>
           <div style={styles.headerRight}>
-            <span style={styles.badge}>Academic Year 2024–25</span>
+            <span style={styles.badge}>Even Semesters (2,4,6,8)</span>
           </div>
         </header>
 
         <div style={styles.content}>
           {tab === "dashboard" && <Dashboard data={data} />}
           {tab === "students"  && <Students data={data} update={update} notify={notify} />}
-          {tab === "courses"   && <Courses  data={data} update={update} notify={notify} />}
-          {tab === "marks"     && <MarksEntry data={data} update={update} notify={notify} />}
           {tab === "upload"    && <ExcelUpload data={data} update={update} notify={notify} />}
           {tab === "reports"   && <Reports data={data} notify={notify} />}
         </div>
