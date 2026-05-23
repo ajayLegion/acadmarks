@@ -17,7 +17,7 @@ export function Reports({ data, notify }) {
           "Semester": s.semester, "Course": sub.courseName,
           "Marks": sub.marks, "Max Marks": sub.maxMarks,
           "Percentage": pct(sub.marks, sub.maxMarks) + "%",
-          "Grade": g.grade, "GPA": g.gpa, "Result": g.gpa >= 5 ? "Pass" : "Fail"
+          "Grade": g.grade, "cgpa": g.cgpa, "Result": g.cgpa >= 5 ? "Pass" : "Fail"
         };
       })
     );
@@ -27,13 +27,13 @@ export function Reports({ data, notify }) {
     XLSX.utils.book_append_sheet(wb, ws, "All Marks");
 
     const summary = data.students.map(s => {
-      const cgpa = s.subjects.length
-        ? (s.subjects.reduce((a, sub) => a + getGrade(sub.marks, sub.maxMarks).gpa, 0) / s.subjects.length).toFixed(2)
+      const ccgpa = s.subjects.length
+        ? (s.subjects.reduce((a, sub) => a + getGrade(sub.marks, sub.maxMarks).cgpa, 0) / s.subjects.length).toFixed(2)
         : 0;
       const avg = s.subjects.length
         ? (s.subjects.reduce((a, sub) => a + (sub.marks / sub.maxMarks) * 100, 0) / s.subjects.length).toFixed(1)
         : 0;
-      return { "Roll No": s.rollNo, "Name": s.name, "Dept": s.department, "Subjects": s.subjects.length, "Avg %": avg, "CGPA": cgpa };
+      return { "Roll No": s.rollNo, "Name": s.name, "Dept": s.department, "Subjects": s.subjects.length, "Avg %": avg, "Ccgpa": ccgpa };
     });
     const ws2 = XLSX.utils.json_to_sheet(summary);
     XLSX.utils.book_append_sheet(wb, ws2, "Summary");
@@ -43,12 +43,12 @@ export function Reports({ data, notify }) {
 
   const printTranscript = () => {
     if (!student) return notify("Select a student", "error");
-    const cgpa = student.subjects.length
-      ? (student.subjects.reduce((a, s) => a + getGrade(s.marks, s.maxMarks).gpa, 0) / student.subjects.length).toFixed(2)
+    const ccgpa = student.subjects.length
+      ? (student.subjects.reduce((a, s) => a + getGrade(s.marks, s.maxMarks).cgpa, 0) / student.subjects.length).toFixed(2)
       : 0;
     const rows = student.subjects.map(s => {
       const g = getGrade(s.marks, s.maxMarks);
-      return `<tr><td style="padding:8px;border:1px solid #e5e7eb">${s.courseName}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${s.marks}/${s.maxMarks}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${pct(s.marks,s.maxMarks)}%</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-weight:700;color:${g.gpa>=6?"#15803d":g.gpa>=5?"#854d0e":"#b91c1c"}">${g.grade}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${g.gpa}</td></tr>`;
+      return `<tr><td style="padding:8px;border:1px solid #e5e7eb">${s.courseName}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${s.marks}/${s.maxMarks}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${pct(s.marks,s.maxMarks)}%</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center;font-weight:700;color:${g.cgpa>=6?"#15803d":g.cgpa>=5?"#854d0e":"#b91c1c"}">${g.grade}</td><td style="padding:8px;border:1px solid #e5e7eb;text-align:center">${g.cgpa}</td></tr>`;
     }).join("");
     const html = `<!DOCTYPE html><html><head><title>Transcript – ${student.name}</title></head><body style="font-family:Georgia,serif;padding:40px;max-width:700px;margin:auto">
       <div style="text-align:center;border-bottom:3px double #6C63FF;padding-bottom:20px;margin-bottom:24px">
@@ -62,12 +62,12 @@ export function Reports({ data, notify }) {
         <tr><td style="padding:6px 0;color:#6B7280">Semester</td><td>${student.semester || "—"}</td></tr>
       </table>
       <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <thead><tr style="background:#6C63FF;color:#fff"><th style="padding:10px;border:1px solid #6C63FF">Course</th><th style="padding:10px;border:1px solid #6C63FF">Marks</th><th style="padding:10px;border:1px solid #6C63FF">%</th><th style="padding:10px;border:1px solid #6C63FF">Grade</th><th style="padding:10px;border:1px solid #6C63FF">GPA</th></tr></thead>
+        <thead><tr style="background:#6C63FF;color:#fff"><th style="padding:10px;border:1px solid #6C63FF">Course</th><th style="padding:10px;border:1px solid #6C63FF">Marks</th><th style="padding:10px;border:1px solid #6C63FF">%</th><th style="padding:10px;border:1px solid #6C63FF">Grade</th><th style="padding:10px;border:1px solid #6C63FF">cgpa</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
       <div style="margin-top:20px;padding:16px;background:#f3f4f6;border-radius:8px;display:flex;justify-content:space-between">
-        <span><b>CGPA:</b> ${cgpa} / 10</span>
-        <span><b>Result:</b> ${Number(cgpa) >= 5 ? "✅ PASS" : "❌ FAIL"}</span>
+        <span><b>Ccgpa:</b> ${ccgpa} / 10</span>
+        <span><b>Result:</b> ${Number(ccgpa) >= 5 ? "✅ PASS" : "❌ FAIL"}</span>
         <span><b>Subjects:</b> ${student.subjects.length}</span>
       </div>
       <div style="margin-top:40px;display:flex;justify-content:space-between;color:#6B7280;font-size:12px">
@@ -105,7 +105,7 @@ export function Reports({ data, notify }) {
           {student && (
             <div style={styles.infoNote}>
               {student.name} · {student.subjects.length} subjects ·&nbsp;
-              CGPA: {student.subjects.length ? (student.subjects.reduce((a, s) => a + getGrade(s.marks, s.maxMarks).gpa, 0) / student.subjects.length).toFixed(2) : "—"}
+              Ccgpa: {student.subjects.length ? (student.subjects.reduce((a, s) => a + getGrade(s.marks, s.maxMarks).cgpa, 0) / student.subjects.length).toFixed(2) : "—"}
             </div>
           )}
           <button style={styles.btn} onClick={printTranscript}>🖨 Print / Save PDF Transcript</button>

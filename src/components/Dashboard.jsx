@@ -3,7 +3,7 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 import { GRADE_RULES, COLORS, styles } from "../utils/constants";
-import { getGrade, calcGPA } from "../utils/helpers";
+import { getGrade, calccgpa } from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
 export function Dashboard({ data }) {
@@ -14,7 +14,7 @@ export function Dashboard({ data }) {
   const avgPct = allSubjects.length
     ? (allSubjects.reduce((a, s) => a + (s.marks / s.maxMarks) * 100, 0) / allSubjects.length).toFixed(1)
     : 0;
-  const gpa = calcGPA(students);
+  const cgpa = calccgpa(students);
 
   const gradeDist = GRADE_RULES.slice(0, -1).map(r => ({
     name: r.grade,
@@ -38,7 +38,7 @@ export function Dashboard({ data }) {
     { label: "Total Students", value: students.length, icon: "🎓", color: "#6C63FF" },
     { label: "Total Courses",  value: courses.length,  icon: "📚", color: "#43C6AC" },
     { label: "Class Average",  value: avgPct + "%",    icon: "📈", color: "#F7971E" },
-    { label: "GPA (avg)",      value: gpa,             icon: "⭐", color: "#FF6584" },
+    { label: "cgpa (avg)",      value: cgpa,             icon: "⭐", color: "#FF6584" },
   ];
 
   return (

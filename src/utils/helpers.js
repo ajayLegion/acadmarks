@@ -5,13 +5,13 @@ export function getGrade(marks, max = 100) {
   return GRADE_RULES.find(r => pct >= r.min) || GRADE_RULES[GRADE_RULES.length - 1];
 }
 
-export function calcGPA(students) {
+export function calccgpa(students) {
   if (!students.length) return 0;
-  const gpas = students.map(s => {
-    const subjectGPAs = s.subjects.map(sub => getGrade(sub.marks, sub.maxMarks).gpa);
-    return subjectGPAs.length ? subjectGPAs.reduce((a, b) => a + b, 0) / subjectGPAs.length : 0;
+  const cgpas = students.map(s => {
+    const subjectcgpas = s.subjects.map(sub => getGrade(sub.marks, sub.maxMarks).cgpa);
+    return subjectcgpas.length ? subjectcgpas.reduce((a, b) => a + b, 0) / subjectcgpas.length : 0;
   });
-  return (gpas.reduce((a, b) => a + b, 0) / gpas.length).toFixed(2);
+  return (cgpas.reduce((a, b) => a + b, 0) / cgpas.length).toFixed(2);
 }
 
 export function pct(marks, max) {

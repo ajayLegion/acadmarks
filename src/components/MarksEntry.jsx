@@ -52,8 +52,8 @@ export function MarksEntry({ data, update, notify }) {
         </label>
 
         {grade && (
-          <div style={{ ...styles.gradeBadge, background: grade.gpa >= 6 ? "#dcfce7" : "#fee2e2", color: grade.gpa >= 6 ? "#15803d" : "#b91c1c" }}>
-            Grade: <b>{grade.grade}</b> — {grade.label} &nbsp;|&nbsp; GPA: <b>{grade.gpa}</b> &nbsp;|&nbsp; {pct(Number(marks), Number(course?.maxMarks || 100))}%
+          <div style={{ ...styles.gradeBadge, background: grade.cgpa >= 6 ? "#dcfce7" : "#fee2e2", color: grade.cgpa >= 6 ? "#15803d" : "#b91c1c" }}>
+            Grade: <b>{grade.grade}</b> — {grade.label} &nbsp;|&nbsp; cgpa: <b>{grade.cgpa}</b> &nbsp;|&nbsp; {pct(Number(marks), Number(course?.maxMarks || 100))}%
           </div>
         )}
         {existing && <div style={styles.infoNote}>ℹ️ Existing: {existing.marks}/{existing.maxMarks} ({getGrade(existing.marks, existing.maxMarks).grade}) — will be overwritten</div>}
@@ -68,7 +68,7 @@ export function MarksEntry({ data, update, notify }) {
         {student?.subjects.length ? (
           <>
             <table style={styles.table}>
-              <thead><tr>{["Course","Marks","Max","% ","Grade","GPA"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{["Course","Marks","Max","% ","Grade","cgpa"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {student.subjects.map(s => {
                   const g = getGrade(s.marks, s.maxMarks);
@@ -79,16 +79,16 @@ export function MarksEntry({ data, update, notify }) {
                       <td style={styles.td}>{s.maxMarks}</td>
                       <td style={styles.td}>{pct(s.marks, s.maxMarks)}%</td>
                       <td style={{ ...styles.td }}>
-                        <span style={{ ...styles.gradeChip, background: g.gpa >= 6 ? "#dcfce7" : g.gpa >= 5 ? "#fef9c3" : "#fee2e2", color: g.gpa >= 6 ? "#15803d" : g.gpa >= 5 ? "#854d0e" : "#b91c1c" }}>{g.grade}</span>
+                        <span style={{ ...styles.gradeChip, background: g.cgpa >= 6 ? "#dcfce7" : g.cgpa >= 5 ? "#fef9c3" : "#fee2e2", color: g.cgpa >= 6 ? "#15803d" : g.cgpa >= 5 ? "#854d0e" : "#b91c1c" }}>{g.grade}</span>
                       </td>
-                      <td style={styles.td}>{g.gpa}</td>
+                      <td style={styles.td}>{g.cgpa}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
             <div style={{ textAlign: "right", marginTop: 8, fontSize: 14, color: "#6C63FF", fontWeight: 700 }}>
-              CGPA: {(student.subjects.reduce((a, s) => a + getGrade(s.marks, s.maxMarks).gpa, 0) / student.subjects.length).toFixed(2)}
+              Ccgpa: {(student.subjects.reduce((a, s) => a + getGrade(s.marks, s.maxMarks).cgpa, 0) / student.subjects.length).toFixed(2)}
             </div>
           </>
         ) : <EmptyState msg={student ? "No marks entered yet" : "Select a student"} />}

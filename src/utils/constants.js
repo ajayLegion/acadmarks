@@ -1,13 +1,13 @@
 export const STORAGE_KEY = "acad_marks_v1";
 
 export const GRADE_RULES = [
-  { min: 90, grade: "O",  label: "Outstanding",  gpa: 10 },
-  { min: 80, grade: "A+", label: "Excellent",     gpa: 9  },
-  { min: 70, grade: "A",  label: "Very Good",     gpa: 8  },
-  { min: 60, grade: "B+", label: "Good",          gpa: 7  },
-  { min: 50, grade: "B",  label: "Above Average", gpa: 6  },
-  { min: 40, grade: "C",  label: "Average",       gpa: 5  },
-  { min: 0,  grade: "F",  label: "Fail",          gpa: 0  },
+  { min: 90, grade: "O",  label: "Outstanding",  cgpa: 10 },
+  { min: 80, grade: "A+", label: "Excellent",     cgpa: 9  },
+  { min: 70, grade: "A",  label: "Very Good",     cgpa: 8  },
+  { min: 60, grade: "B+", label: "Good",          cgpa: 7  },
+  { min: 50, grade: "B",  label: "Above Average", cgpa: 6  },
+  { min: 40, grade: "C",  label: "Average",       cgpa: 5  },
+  { min: 0,  grade: "F",  label: "Fail",          cgpa: 0  },
 ];
 
 export const COLORS = [
