@@ -4,6 +4,7 @@ import { Dashboard } from "./components/Dashboard";
 import { Students } from "./components/Students";
 import { ExcelUpload } from "./components/ExcelUpload";
 import { Reports } from "./components/Reports";
+import "./App.css";
 
 /* ── Class lists per semester type ─────────────────────────────── */
 export const CLASS_MAP = {
@@ -22,6 +23,7 @@ export default function App() {
 
   /* reset class selection when sem type changes */
   const changeSem = t => { setSemType(t); setSelClass("all"); };
+  const [menuOpen, setMenuOpen] = useState(true);
 
   const update = useCallback(fn => {
     setData(prev => {
@@ -47,15 +49,15 @@ export default function App() {
   const activeLabel = selClass === "all" ? "All Classes" : `Class ${selClass}`;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${menuOpen ? "menu-open" : "menu-closed"}`}>
 
       {/* ══ Sidebar ══════════════════════════════════════════════ */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${menuOpen ? "show" : "hide"}`}>
         <div className="brand">
           <div className="brand-icon">🏛</div>
           <div>
             <div className="brand-title">AcadMarks</div>
-            <div className="brand-sub">IA Tracking Portal</div>
+            <div className="brand-sub">IA Tracking Portal For EE</div>
           </div>
         </div>
 
@@ -148,21 +150,43 @@ export default function App() {
       {/* ══ Main ══════════════════════════════════════════════════ */}
       <main className="main-area">
         <header className="topbar">
-          <div className="page-title">
-            <span>{nav.find(n => n.id === tab)?.icon}</span>
-            {nav.find(n => n.id === tab)?.label}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+
+            <button
+              className="menu-toggle"
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              {menuOpen ? "✖" : "☰"}
+            </button>
+
+            <div className="page-title">
+              <span>{nav.find(n => n.id === tab)?.icon}</span>
+              {nav.find(n => n.id === tab)?.label}
+            </div>
+
           </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span className="sem-badge">
               {semType === "even" ? "Even" : "Odd"} Semester
             </span>
-            <span className="sem-badge" style={{
-              background: selClass === "all" ? "var(--bg-2)" : "var(--accent-bg)",
-              color: selClass === "all" ? "var(--text-2)" : "var(--accent)",
-            }}>
+
+            <span
+              className="sem-badge"
+              style={{
+                background: selClass === "all"
+                  ? "var(--bg-2)"
+                  : "var(--accent-bg)",
+                color: selClass === "all"
+                  ? "var(--text-2)"
+                  : "var(--accent)",
+              }}
+            >
               {activeLabel}
             </span>
           </div>
+
         </header>
 
         <div className="content-area">

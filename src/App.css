@@ -182,3 +182,53 @@
     border-right-color: var(--border);
   }
 }
+
+.sidebar {
+  width: 260px;
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.sidebar.hide {
+  width: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.main-area {
+  flex: 1;
+  transition: all 0.25s ease;
+}
+
+.menu-toggle {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: 0.2s;
+}
+
+.menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+@media (max-width: 768px) {
+
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1000;
+  }
+
+  .sidebar.hide {
+    transform: translateX(-100%);
+    width: 260px;
+    opacity: 1;
+  }
+
+}
