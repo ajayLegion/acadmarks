@@ -1,5 +1,5 @@
 export const STORAGE_KEY = "acad_marks_v1";
-export const IA_THRESHOLD = 9;
+export const IA_THRESHOLD = 8;
 export const IA_MAX = 25;
 export const IA_GAP_MONTHS = 1.5;
 export const MIN_SEMESTER_COURSES = 6;

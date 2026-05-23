@@ -42,29 +42,84 @@ function IAStats({
   field,
   label,
 }) {
-  const vals = students
-    .map(s => s[field])
-    .filter(v => v !== null);
 
-  if (!vals.length) return null;
+  // student-wise aggregation
+  const studentStats = students.map(
+    student => {
 
-  const total = vals.length;
+      const validCourses =
+        student.courses.filter(c => {
 
-  const avg = average(vals).toFixed(1);
+          const mark =
+            field === "iaI"
+              ? c.iaI
+              : c.iaII;
+
+          const absent =
+            field === "iaI"
+              ? c.iaIAbsent
+              : c.iaIIAbsent;
+
+          return (
+            !absent &&
+            mark !== null &&
+            mark !== undefined
+          );
+        });
+
+      const marks =
+        validCourses.map(c =>
+          field === "iaI"
+            ? c.iaI
+            : c.iaII
+        );
+
+      const avg =
+        marks.length
+          ? average(marks)
+          : 0;
+
+      const failed =
+        marks.some(
+          m => m < IA_THRESHOLD
+        );
+
+      return {
+        avg,
+        failed,
+      };
+    }
+  );
+
+  const averages =
+    studentStats.map(s => s.avg);
+
+  if (!averages.length)
+    return null;
+
+  const totalStudents =
+    studentStats.length;
+
+  const classAvg =
+    average(averages).toFixed(1);
 
   const highest =
-    Math.max(...vals);
+    Math.max(...averages).toFixed(1);
 
   const lowest =
-    Math.min(...vals);
+    Math.min(...averages).toFixed(1);
 
-  const passing = vals.filter(
-    v => v >= IA_THRESHOLD
-  ).length;
+  const passing =
+    studentStats.filter(
+      s => !s.failed
+    ).length;
 
-  const passRate = Math.round(
-    (passing / total) * 100
-  );
+  const passRate =
+    Math.round(
+      (passing /
+        totalStudents) *
+      100
+    );
 
   return (
     <div
@@ -82,17 +137,12 @@ function IAStats({
       <div
         style={{
           fontSize: 12,
-
           fontWeight: 700,
-
           color: "var(--text-2)",
-
           textTransform:
             "uppercase",
-
           letterSpacing:
             "0.5px",
-
           marginBottom: 8,
         }}
       >
@@ -101,13 +151,12 @@ function IAStats({
 
       <div
         className="ia-stat-row"
-        style={{
-          marginTop: 0,
-        }}
+        style={{ marginTop: 0 }}
       >
+
         <Stat
           label="Avg"
-          value={avg}
+          value={classAvg}
           color="#5b5ef4"
         />
 
@@ -125,7 +174,7 @@ function IAStats({
 
         <Stat
           label="Pass"
-          value={`${passing}/${total}`}
+          value={`${passing}/${totalStudents}`}
           color="var(--text-h)"
         />
 
@@ -337,13 +386,13 @@ function ClassReport({
             }}
           >
             <IAStats
-              students={courseRows}
+              students={students}
               field="iaI"
               label="IA-I"
             />
 
             <IAStats
-              students={courseRows}
+              students={students}
               field="iaII"
               label="IA-II"
             />
