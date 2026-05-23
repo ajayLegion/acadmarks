@@ -151,10 +151,11 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 ,color: "black" }}>
 
             <button
               className="menu-toggle"
+              style={{ color: "black" }}
               onClick={() => setMenuOpen(!menuOpen)}
             >
               {menuOpen ? "✖" : "☰"}
