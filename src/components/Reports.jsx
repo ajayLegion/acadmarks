@@ -107,7 +107,7 @@ function ClassReport({ cls, students, onExport }) {
           <table>
             <thead>
               <tr>
-                {["Roll No", "Name", "Dept", "Sem",
+                {["SRN", "Name", "Dept", "Sem",
                   "IA-I", "IA-II", "Total", "Status"].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
@@ -124,7 +124,7 @@ function ClassReport({ cls, students, onExport }) {
                       fontSize: 12,
                       background: risk ? "#fef3c7" : "var(--bg-2)",
                       padding: "2px 7px", borderRadius: 5
-                    }}>{s.rollNo}</code></td>
+                    }}>{s.SRN}</code></td>
                     <td style={{ fontWeight: 600, color: "var(--text-h)" }}>{s.name}</td>
                     <td>{s.department || "—"}</td>
                     <td>{s.semester || "—"}</td>
@@ -168,7 +168,7 @@ export function Reports({ data, notify, semType, selClass, classes }) {
 
     const rows = students.map(s => ({
       "Class": s.classSection || cls,
-      "Roll No": s.rollNo,
+      "SRN": s.SRN,
       "Student Name": s.name,
       "Department": s.department || "—",
       "Semester": s.semester || "—",
@@ -197,7 +197,7 @@ export function Reports({ data, notify, semType, selClass, classes }) {
       const cs = data.students.filter(s => s.classSection === cls);
       if (!cs.length) return;
       const rows = cs.map(s => ({
-        "Class": s.classSection, "Roll No": s.rollNo, "Student Name": s.name,
+        "Class": s.classSection, "SRN": s.SRN, "Student Name": s.name,
         "Department": s.department || "—", "Semester": s.semester || "—",
         "IA-I": s.iaI || 0, "IA-II": s.iaII || 0,
         "Total": (s.iaI || 0) + (s.iaII || 0),
@@ -280,7 +280,7 @@ export function Reports({ data, notify, semType, selClass, classes }) {
             <div className="table-wrap">
               <table>
                 <thead><tr>
-                  {["Roll No", "Name", "Dept", "IA-I", "IA-II", "Total"].map(h =>
+                  {["SRN", "Name", "Dept", "IA-I", "IA-II", "Total"].map(h =>
                     <th key={h}>{h}</th>)}
                 </tr></thead>
                 <tbody>
@@ -289,7 +289,7 @@ export function Reports({ data, notify, semType, selClass, classes }) {
                       <td><code style={{
                         fontSize: 12, background: "var(--bg-2)",
                         padding: "2px 7px", borderRadius: 5
-                      }}>{s.rollNo}</code></td>
+                      }}>{s.SRN}</code></td>
                       <td style={{ fontWeight: 600 }}>{s.name}</td>
                       <td>{s.department || "—"}</td>
                       <td style={{ fontWeight: 700 }}>{s.iaI || 0}</td>

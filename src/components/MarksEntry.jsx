@@ -37,7 +37,7 @@ export function MarksEntry({ data, update, notify }) {
         <label style={styles.label}>Student
           <select style={styles.input} value={selStudent} onChange={e => { setSelStudent(e.target.value); setMarks(""); }}>
             <option value="">— Select student —</option>
-            {data.students.map(s => <option key={s.id} value={s.id}>{s.rollNo} — {s.name}</option>)}
+            {data.students.map(s => <option key={s.id} value={s.id}>{s.SRN} — {s.name}</option>)}
           </select>
         </label>
         <label style={styles.label}>Course

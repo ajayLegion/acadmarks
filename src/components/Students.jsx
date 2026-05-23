@@ -4,7 +4,7 @@ import { EmptyState } from "./EmptyState";
 
 export function Students({ data, update, notify, semType, selClass, classes }) {
   const blank = {
-    name: "", rollNo: "", department: "", semester: "",
+    name: "", SRN: "", department: "", semester: "",
     classSection: "", iaI: "", iaII: ""
   };
   const [form, setForm] = useState(blank);
@@ -16,8 +16,8 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
   const effectiveCls = selClass !== "all" ? selClass : viewCls;
 
   const submit = () => {
-    if (!form.name || !form.rollNo)
-      return notify("Name and Roll No required", "error");
+    if (!form.name || !form.SRN)
+      return notify("Name and SRN required", "error");
     const iaI = Number(form.iaI || 0);
     const iaII = Number(form.iaII || 0);
     if (iaI < 0 || iaI > 25 || iaII < 0 || iaII > 25)
@@ -30,7 +30,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
         notify("Student updated");
       } else {
         d.students.push({
-          id: uid(), name: form.name, rollNo: form.rollNo,
+          id: uid(), name: form.name, SRN: form.SRN,
           department: form.department, semester: form.semester,
           classSection: form.classSection, iaI, iaII
         });
@@ -49,7 +49,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
 
   const edit = s => {
     setForm({
-      name: s.name, rollNo: s.rollNo, department: s.department,
+      name: s.name, SRN: s.SRN, department: s.department,
       semester: s.semester, classSection: s.classSection || "", iaI: s.iaI || "", iaII: s.iaII || ""
     });
     setEditing(s.id);
@@ -62,7 +62,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
 
   const filtered = byClass.filter(s =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
-    s.rollNo.toLowerCase().includes(search.toLowerCase())
+    s.SRN.toLowerCase().includes(search.toLowerCase())
   );
 
   const atRiskList = filtered.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0));
@@ -111,7 +111,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
             </select>
           </label>
 
-          {[["name", "Full Name"], ["rollNo", "Roll Number"],
+          {[["name", "Full Name"], ["SRN", "SRN"],
           ["department", "Department"], ["semester", "Semester"]].map(([k, label]) => (
             <label key={k} className="form-label">
               {label}
@@ -176,7 +176,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
                       fontSize: 11
                     }}>{s.classSection}</span>}
                   <span style={{ fontWeight: 700 }}>{s.name}</span>
-                  <span style={{ color: "#78350f" }}>({s.rollNo})</span>
+                  <span style={{ color: "#78350f" }}>({s.SRN})</span>
                   <span>IA-I:<b>{s.iaI || 0}</b></span>
                   <span>IA-II:<b>{s.iaII || 0}</b></span>
                 </div>
@@ -189,7 +189,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
               <table>
                 <thead>
                   <tr>
-                    {["Class", "Roll No", "Name", "Dept", "Sem",
+                    {["Class", "SRN", "Name", "Dept", "Sem",
                       "IA-I", "IA-II", "Total", "Status", "Actions"].map(h =>
                         <th key={h}>{h}</th>)}
                   </tr>
@@ -217,7 +217,7 @@ export function Students({ data, update, notify, semType, selClass, classes }) {
                         <td><code style={{
                           fontSize: 12, background: "var(--bg-2)",
                           padding: "2px 7px", borderRadius: 5
-                        }}>{s.rollNo}</code></td>
+                        }}>{s.SRN}</code></td>
                         <td style={{ fontWeight: 600, color: "var(--text-h)" }}>{s.name}</td>
                         <td>{s.department || "—"}</td>
                         <td>{s.semester || "—"}</td>

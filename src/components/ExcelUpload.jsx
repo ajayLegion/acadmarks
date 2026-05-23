@@ -40,16 +40,16 @@ export function ExcelUpload({ data, update, notify }) {
     let added = 0, updated = 0;
     update(d => {
       preview.forEach(row => {
-        const rollNo = String(row["Roll No"]       || "").trim();
+        const SRN = String(row["SRN"]       || "").trim();
         const name   = String(row["Student Name"]  || "").trim();
         const iaI    = Number(row["IA-I"]  || 0);
         const iaII   = Number(row["IA-II"] || 0);
-        if (!rollNo || !name) return;
+        if (!SRN || !name) return;
 
-        let student = d.students.find(s => s.rollNo === rollNo);
+        let student = d.students.find(s => s.SRN === SRN);
         if (!student) {
           student = {
-            id: uid(), rollNo, name,
+            id: uid(), SRN, name,
             department: row["Department"] || "",
             semester:   String(row["Semester"] || ""),
             iaI, iaII,
@@ -73,7 +73,7 @@ export function ExcelUpload({ data, update, notify }) {
 
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
-      ["Roll No", "Student Name", "IA-I", "IA-II", "Department", "Semester"],
+      ["SRN", "Student Name", "IA-I", "IA-II", "Department", "Semester"],
       ["EE101", "Alice Kumar",  "15", "18", "EEE", "2"],
       ["EE102", "Bob Sharma",   "8",  "12", "EEE", "2"],
       ["EE103", "Carol Singh",  "22", "20", "EEE", "2"],
@@ -88,7 +88,7 @@ export function ExcelUpload({ data, update, notify }) {
       {/* Format info */}
       <div className="info-box">
         <b>📌 Excel Format Required</b><br />
-        Required columns: <code>Roll No</code> <code>Student Name</code> <code>IA-I</code> <code>IA-II</code><br />
+        Required columns: <code>SRN</code> <code>Student Name</code> <code>IA-I</code> <code>IA-II</code><br />
         Optional: <code>Department</code> <code>Semester</code>
         <div style={{ marginTop: 12 }}>
           <button className="btn btn-secondary btn-sm" onClick={downloadTemplate}>
@@ -139,7 +139,7 @@ export function ExcelUpload({ data, update, notify }) {
           {atRiskList.map((s, i) => (
             <div key={i} style={{ fontSize: 13, marginTop: 6 }}>
               <b>{s["Student Name"]}</b>
-              <span style={{ color: "#78350f" }}> ({s["Roll No"]})</span>
+              <span style={{ color: "#78350f" }}> ({s["SRN"]})</span>
               {" — "}IA-I: <b>{s["IA-I"]}</b> · IA-II: <b>{s["IA-II"]}</b>
             </div>
           ))}
