@@ -1,6 +1,11 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { isAtRisk } from "../utils/helpers";
+import { IA_MAX, IA_THRESHOLD } from "../utils/constants";
+import {
+  average,
+  flattenCourseRows,
+  isStudentAtRisk,
+} from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
 /* ── mini stat ──────────────────────────────────────────────────── */
@@ -18,10 +23,10 @@ function IAStats({ students, field, label }) {
   const vals = students.map(s => s[field] || 0);
   if (!vals.length) return null;
   const total = vals.length;
-  const avg = (vals.reduce((a, v) => a + v, 0) / total).toFixed(1);
+  const avg = average(vals).toFixed(1);
   const highest = Math.max(...vals);
   const lowest = Math.min(...vals);
-  const passing = vals.filter(v => v >= 9).length;
+  const passing = vals.filter(v => v >= IA_THRESHOLD).length;
   const passRate = total > 0 ? Math.round(passing / total * 100) : 0;
 
   return (
@@ -48,8 +53,9 @@ function IAStats({ students, field, label }) {
 
 /* ── class report block ─────────────────────────────────────────── */
 function ClassReport({ cls, students, onExport }) {
-  const atRisk = students.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0));
-  const passing = students.filter(s => !isAtRisk(s.iaI || 0, s.iaII || 0));
+  const courseRows = flattenCourseRows(students);
+  const atRisk = students.filter(isStudentAtRisk);
+  const passing = students.filter(s => !isStudentAtRisk(s));
   const passRate = students.length
     ? Math.round(passing.length / students.length * 100) : 0;
 
@@ -96,50 +102,50 @@ function ClassReport({ cls, students, onExport }) {
           display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
           marginBottom: 12
         }}>
-          <IAStats students={students} field="iaI" label="IA-I" />
-          <IAStats students={students} field="iaII" label="IA-II" />
+          <IAStats students={courseRows} field="iaI" label="IA-I" />
+          <IAStats students={courseRows} field="iaII" label="IA-II" />
         </div>
       )}
 
       {/* Student table */}
-      {students.length ? (
+      {courseRows.length ? (
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                {["SRN", "Name", "Dept", "Sem",
+                {["SRN", "Name", "Course", "Type",
                   "IA-I", "IA-II", "Total", "Status"].map(h => <th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {students.map(s => {
-                const iaI = s.iaI || 0;
-                const iaII = s.iaII || 0;
+              {courseRows.map(row => {
+                const iaI = row.iaI || 0;
+                const iaII = row.iaII || 0;
                 const total = iaI + iaII;
-                const risk = isAtRisk(iaI, iaII);
+                const risk = iaI < IA_THRESHOLD || iaII < IA_THRESHOLD;
                 return (
-                  <tr key={s.id}
+                  <tr key={`${row.student.id}-${row.courseCode}`}
                     style={{ background: risk ? "#fffbeb" : "transparent" }}>
                     <td><code style={{
                       fontSize: 12,
                       background: risk ? "#fef3c7" : "var(--bg-2)",
                       padding: "2px 7px", borderRadius: 5
-                    }}>{s.SRN}</code></td>
-                    <td style={{ fontWeight: 600, color: "var(--text-h)" }}>{s.name}</td>
-                    <td>{s.department || "—"}</td>
-                    <td>{s.semester || "—"}</td>
+                    }}>{row.student.SRN}</code></td>
+                    <td style={{ fontWeight: 600, color: "var(--text-h)" }}>{row.student.name}</td>
+                    <td>{row.courseCode} - {row.courseName}</td>
+                    <td>{row.courseType || "Core"}</td>
                     <td style={{
                       fontWeight: 700,
-                      color: iaI < 9 ? "#ef4444" : "var(--text-h)"
+                      color: iaI < IA_THRESHOLD ? "#ef4444" : "var(--text-h)"
                     }}>{iaI}</td>
                     <td style={{
                       fontWeight: 700,
-                      color: iaII < 9 ? "#ef4444" : "var(--text-h)"
+                      color: iaII < IA_THRESHOLD ? "#ef4444" : "var(--text-h)"
                     }}>{iaII}</td>
                     <td style={{
                       fontWeight: 800, color: "#5b5ef4",
                       fontFamily: "var(--mono)"
-                    }}>{total}/50</td>
+                    }}>{total}/{IA_MAX * 2}</td>
                     <td>
                       <span className={risk ? "chip chip-risk" : "chip chip-pass"}>
                         {risk ? "⚠️ At Risk" : "✓ Pass"}
@@ -157,7 +163,7 @@ function ClassReport({ cls, students, onExport }) {
 }
 
 /* ══ Reports ══════════════════════════════════════════════════════ */
-export function Reports({ data, notify, semType, selClass, classes }) {
+export function Reports({ data, notify, selClass, classes }) {
   const [viewCls, setViewCls] = useState(selClass);
   const effectiveCls = selClass !== "all" ? selClass : viewCls;
 
@@ -166,16 +172,19 @@ export function Reports({ data, notify, semType, selClass, classes }) {
     if (!students.length)
       return notify(`No ${type === "atrisk" ? "at-risk " : ""}students in Class ${cls}`, "error");
 
-    const rows = students.map(s => ({
-      "Class": s.classSection || cls,
-      "SRN": s.SRN,
-      "Student Name": s.name,
-      "Department": s.department || "—",
-      "Semester": s.semester || "—",
-      "IA-I": s.iaI || 0,
-      "IA-II": s.iaII || 0,
-      "Total": (s.iaI || 0) + (s.iaII || 0),
-      "Status": isAtRisk(s.iaI || 0, s.iaII || 0) ? "At Risk" : "Pass",
+    const rows = flattenCourseRows(students).map(row => ({
+      "Class": row.student.classSection || cls,
+      "SRN": row.student.SRN,
+      "Student Name": row.student.name,
+      "Department": row.student.department || "-",
+      "Semester": row.student.semester || "-",
+      "Course Code": row.courseCode,
+      "Course Name": row.courseName,
+      "Course Type": row.courseType || "Core",
+      "IA-I": row.iaI || 0,
+      "IA-II": row.iaII || 0,
+      "Total": (row.iaI || 0) + (row.iaII || 0),
+      "Status": row.iaI < IA_THRESHOLD || row.iaII < IA_THRESHOLD ? "At Risk" : "Pass",
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -196,12 +205,19 @@ export function Reports({ data, notify, semType, selClass, classes }) {
     classes.forEach(cls => {
       const cs = data.students.filter(s => s.classSection === cls);
       if (!cs.length) return;
-      const rows = cs.map(s => ({
-        "Class": s.classSection, "SRN": s.SRN, "Student Name": s.name,
-        "Department": s.department || "—", "Semester": s.semester || "—",
-        "IA-I": s.iaI || 0, "IA-II": s.iaII || 0,
-        "Total": (s.iaI || 0) + (s.iaII || 0),
-        "Status": isAtRisk(s.iaI || 0, s.iaII || 0) ? "At Risk" : "Pass",
+      const rows = flattenCourseRows(cs).map(row => ({
+        "Class": row.student.classSection,
+        "SRN": row.student.SRN,
+        "Student Name": row.student.name,
+        "Department": row.student.department || "-",
+        "Semester": row.student.semester || "-",
+        "Course Code": row.courseCode,
+        "Course Name": row.courseName,
+        "Course Type": row.courseType || "Core",
+        "IA-I": row.iaI || 0,
+        "IA-II": row.iaII || 0,
+        "Total": (row.iaI || 0) + (row.iaII || 0),
+        "Status": row.iaI < IA_THRESHOLD || row.iaII < IA_THRESHOLD ? "At Risk" : "Pass",
       }));
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), cls);
       any = true;
@@ -280,28 +296,28 @@ export function Reports({ data, notify, semType, selClass, classes }) {
             <div className="table-wrap">
               <table>
                 <thead><tr>
-                  {["SRN", "Name", "Dept", "IA-I", "IA-II", "Total"].map(h =>
+                  {["SRN", "Name", "Dept", "Courses", "At-Risk Courses"].map(h =>
                     <th key={h}>{h}</th>)}
                 </tr></thead>
                 <tbody>
-                  {unassigned.map(s => (
-                    <tr key={s.id}>
-                      <td><code style={{
-                        fontSize: 12, background: "var(--bg-2)",
-                        padding: "2px 7px", borderRadius: 5
-                      }}>{s.SRN}</code></td>
-                      <td style={{ fontWeight: 600 }}>{s.name}</td>
-                      <td>{s.department || "—"}</td>
-                      <td style={{ fontWeight: 700 }}>{s.iaI || 0}</td>
-                      <td style={{ fontWeight: 700 }}>{s.iaII || 0}</td>
-                      <td style={{
-                        fontWeight: 800, color: "#5b5ef4",
-                        fontFamily: "var(--mono)"
-                      }}>
-                        {(s.iaI || 0) + (s.iaII || 0)}/50
-                      </td>
-                    </tr>
-                  ))}
+                  {unassigned.map(s => {
+                    const rows = flattenCourseRows([s]);
+                    const risk = rows.filter(row => row.iaI < IA_THRESHOLD || row.iaII < IA_THRESHOLD).length;
+                    return (
+                      <tr key={s.id}>
+                        <td><code style={{
+                          fontSize: 12, background: "var(--bg-2)",
+                          padding: "2px 7px", borderRadius: 5
+                        }}>{s.SRN}</code></td>
+                        <td style={{ fontWeight: 600 }}>{s.name}</td>
+                        <td>{s.department || "-"}</td>
+                        <td style={{ fontWeight: 700 }}>{rows.length}</td>
+                        <td style={{ fontWeight: 700, color: risk ? "#ef4444" : "#22c55e" }}>
+                          {risk}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

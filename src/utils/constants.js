@@ -1,6 +1,14 @@
 export const STORAGE_KEY = "acad_marks_v1";
 export const IA_THRESHOLD = 9;
 export const IA_MAX = 25;
+export const IA_GAP_MONTHS = 1.5;
+export const MIN_SEMESTER_COURSES = 6;
+export const MAX_SEMESTER_COURSES = 8;
+
+export const CLASS_MAP = {
+  even: ["2A", "2B", "4A", "4B", "6A", "6B", "8A", "8B"],
+  odd: ["1A", "1B", "3A", "3B", "5A", "5B", "7A", "7B"],
+};
 
 export const COLORS = [
   "#6C63FF", "#FF6584", "#43C6AC", "#F7971E",

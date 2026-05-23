@@ -1,17 +1,14 @@
 import { useState, useCallback } from "react";
-import { load, save } from "./utils/helpers";
+import { isStudentAtRisk, load, normalizeData, save } from "./utils/helpers";
 import { Dashboard } from "./components/Dashboard";
 import { Students } from "./components/Students";
 import { ExcelUpload } from "./components/ExcelUpload";
 import { Reports } from "./components/Reports";
+import { Courses } from "./components/Courses";
+import { MarksEntry } from "./components/MarksEntry";
+import { CLASS_MAP } from "./utils/constants";
 import "./App.css";
 import logo from "./assets/reva-2.png";
-
-/* ── Class lists per semester type ─────────────────────────────── */
-export const CLASS_MAP = {
-  even: ["2A", "2B", "4A", "4B", "6A", "6B", "8A", "8B"],
-  odd: ["1A", "1B", "3A", "3B", "5A", "5B", "7A", "7B"],
-};
 
 export default function App() {
   const [tab, setTab] = useState("dashboard");
@@ -28,7 +25,7 @@ export default function App() {
 
   const update = useCallback(fn => {
     setData(prev => {
-      const next = fn(structuredClone(prev));
+      const next = normalizeData(fn(structuredClone(prev)));
       save(next);
       return next;
     });
@@ -42,11 +39,13 @@ export default function App() {
   const nav = [
     { id: "dashboard", icon: "📊", label: "Dashboard" },
     { id: "students", icon: "🎓", label: "Students" },
+    { id: "courses", icon: "📚", label: "Courses" },
+    { id: "marks", icon: "✏️", label: "Marks Entry" },
     { id: "upload", icon: "⬆️", label: "Excel Upload" },
     { id: "reports", icon: "📄", label: "Reports" },
   ];
 
-  const atRisk = data.students.filter(s => (s.iaI || 0) < 9 || (s.iaII || 0) < 9).length;
+  const atRisk = data.students.filter(isStudentAtRisk).length;
   const activeLabel = selClass === "all" ? "All Classes" : `Class ${selClass}`;
 
   return (
@@ -151,7 +150,7 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 ,color: "black" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12  }}>
 
             <button
               className="menu-toggle"
@@ -192,17 +191,21 @@ export default function App() {
 
         <div className="content-area">
           {tab === "dashboard" &&
-            <Dashboard data={data} semType={semType}
-              selClass={selClass} classes={classes} />}
+            <Dashboard data={data} selClass={selClass} classes={classes} />}
           {tab === "students" &&
             <Students data={data} update={update} notify={notify}
               semType={semType} selClass={selClass} classes={classes} />}
+          {tab === "courses" &&
+            <Courses data={data} update={update} notify={notify} />}
+          {tab === "marks" &&
+            <MarksEntry data={data} update={update} notify={notify}
+              selClass={selClass} classes={classes} />}
           {tab === "upload" &&
             <ExcelUpload data={data} update={update} notify={notify}
               classes={classes} />}
           {tab === "reports" &&
             <Reports data={data} notify={notify}
-              semType={semType} selClass={selClass} classes={classes} />}
+              selClass={selClass} classes={classes} />}
         </div>
       </main>
 

@@ -1,4 +1,10 @@
-import { isAtRisk } from "../utils/helpers";
+import { IA_MAX, IA_THRESHOLD } from "../utils/constants";
+import {
+  average,
+  flattenCourseRows,
+  getStudentCourses,
+  isStudentAtRisk,
+} from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
 /* ── helpers ───────────────────────────────────────────────────── */
@@ -41,13 +47,13 @@ function IACard({ title, field, students }) {
   const avg = (vals.reduce((a, v) => a + v, 0) / total).toFixed(1);
   const highest = Math.max(...vals);
   const lowest = Math.min(...vals);
-  const passing = vals.filter(v => v >= 9).length;
+  const passing = vals.filter(v => v >= IA_THRESHOLD).length;
   const passRate = pct(passing, total);
 
   const buckets = [
     { label: "< 5", count: vals.filter(v => v < 5).length, color: "#ef4444" },
-    { label: "5–8", count: vals.filter(v => v >= 5 && v <= 8).length, color: "#f59e0b" },
-    { label: "9–14", count: vals.filter(v => v >= 9 && v <= 14).length, color: "#3b82f6" },
+    { label: "5–8", count: vals.filter(v => v >= 5 && v < IA_THRESHOLD).length, color: "#f59e0b" },
+    { label: "9–14", count: vals.filter(v => v >= IA_THRESHOLD && v <= 14).length, color: "#3b82f6" },
     { label: "15–19", count: vals.filter(v => v >= 15 && v <= 19).length, color: "#22c55e" },
     { label: "20–25", count: vals.filter(v => v >= 20).length, color: "#5b5ef4" },
   ];
@@ -84,7 +90,7 @@ function IACard({ title, field, students }) {
           display: "flex", justifyContent: "space-between",
           fontSize: 11, color: "#8b90a7", marginBottom: 5, fontWeight: 600
         }}>
-          <span>Pass rate (≥ 9/25)</span>
+          <span>Pass rate (&gt;= {IA_THRESHOLD}/{IA_MAX})</span>
           <span>{passing} pass · {total - passing} risk</span>
         </div>
         <div className="stats-bar">
@@ -96,7 +102,7 @@ function IACard({ title, field, students }) {
         fontSize: 11, color: "#8b90a7", fontWeight: 700,
         textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8
       }}>
-        Distribution (out of 25)
+        Distribution (out of {IA_MAX})
       </div>
       {buckets.map(b =>
         <DistBar key={b.label} {...b} total={total} />
@@ -108,9 +114,10 @@ function IACard({ title, field, students }) {
 /* ── per-class row in overview table ───────────────────────────── */
 function ClassRow({ cls, students, onClick, selected }) {
   const total = students.length;
-  const risk = students.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0)).length;
-  const avgI = total ? (students.reduce((a, s) => a + (s.iaI || 0), 0) / total).toFixed(1) : "—";
-  const avgII = total ? (students.reduce((a, s) => a + (s.iaII || 0), 0) / total).toFixed(1) : "—";
+  const rows = flattenCourseRows(students);
+  const risk = students.filter(isStudentAtRisk).length;
+  const avgI = rows.length ? average(rows.map(row => row.iaI)).toFixed(1) : "—";
+  const avgII = rows.length ? average(rows.map(row => row.iaII)).toFixed(1) : "—";
   const passR = pct(total - risk, total);
 
   return (
@@ -147,7 +154,7 @@ function ClassRow({ cls, students, onClick, selected }) {
 }
 
 /* ══ Dashboard ════════════════════════════════════════════════════ */
-export function Dashboard({ data, semType, selClass, classes }) {
+export function Dashboard({ data, selClass, classes }) {
   const { students } = data;
 
   /* filter by class if one is selected */
@@ -155,22 +162,31 @@ export function Dashboard({ data, semType, selClass, classes }) {
     ? students
     : students.filter(s => s.classSection === selClass);
 
+  const viewCourseRows = flattenCourseRows(viewStudents);
   const total = viewStudents.length;
-  const atRisk = viewStudents.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0)).length;
+  const atRisk = viewStudents.filter(isStudentAtRisk).length;
   const passCount = total - atRisk;
-  const avgI = total
-    ? (viewStudents.reduce((a, s) => a + (s.iaI || 0), 0) / total).toFixed(1) : 0;
-  const avgII = total
-    ? (viewStudents.reduce((a, s) => a + (s.iaII || 0), 0) / total).toFixed(1) : 0;
+  const avgI = viewCourseRows.length ? average(viewCourseRows.map(row => row.iaI)).toFixed(1) : 0;
+  const avgII = viewCourseRows.length ? average(viewCourseRows.map(row => row.iaII)).toFixed(1) : 0;
 
   const topStudents = [...viewStudents]
-    .map(s => ({ ...s, total: (s.iaI || 0) + (s.iaII || 0) }))
-    .sort((a, b) => b.total - a.total).slice(0, 5);
+    .map(s => {
+      const rows = getStudentCourses(s);
+      const totalMarks = rows.reduce((sum, row) => sum + row.iaI + row.iaII, 0);
+      return {
+        ...s,
+        courseCount: rows.length,
+        total: totalMarks,
+        avg: rows.length ? totalMarks / rows.length : 0,
+      };
+    })
+    .filter(s => s.courseCount > 0)
+    .sort((a, b) => b.avg - a.avg).slice(0, 5);
 
   const kpis = [
     { label: "Students", value: total, icon: "🎓", color: "#5b5ef4" },
-    { label: "Avg IA-I", value: `${avgI}/25`, icon: "📝", color: "#22c55e" },
-    { label: "Avg IA-II", value: `${avgII}/25`, icon: "📋", color: "#f59e0b" },
+    { label: "Avg IA-I", value: `${avgI}/${IA_MAX}`, icon: "📝", color: "#22c55e" },
+    { label: "Avg IA-II", value: `${avgII}/${IA_MAX}`, icon: "📋", color: "#f59e0b" },
     { label: "At Risk", value: atRisk, icon: "⚠️", color: "#ef4444" },
   ];
   const rankBg = ["#F7971E", "#9CA3AF", "#CD7C2F", "#E5E7EB", "#E5E7EB"];
@@ -207,8 +223,8 @@ export function Dashboard({ data, semType, selClass, classes }) {
             <>
               <div style={{ display: "flex", gap: 20, marginBottom: 16 }}>
                 {[
-                  [passCount, "Passing", "#22c55e", "IA ≥ 9"],
-                  [atRisk, "At Risk", "#f59e0b", "IA < 9"],
+                  [passCount, "Passing", "#22c55e", `IA >= ${IA_THRESHOLD}`],
+                  [atRisk, "At Risk", "#f59e0b", `IA < ${IA_THRESHOLD}`],
                 ].map(([n, lbl, col, sub]) => (
                   <div key={lbl} style={{ flex: 1, textAlign: "center" }}>
                     <div style={{
@@ -252,7 +268,7 @@ export function Dashboard({ data, semType, selClass, classes }) {
                     padding: "1px 6px", borderRadius: 4, fontSize: 10,
                     fontWeight: 700
                   }}>{s.classSection}</span>}
-                  IA-I: {s.iaI || 0} · IA-II: {s.iaII || 0}
+                  {s.courseCount} courses · Avg total: {s.avg.toFixed(1)}/{IA_MAX * 2}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
@@ -260,7 +276,7 @@ export function Dashboard({ data, semType, selClass, classes }) {
                   fontSize: 15, color: "#5b5ef4", fontWeight: 800,
                   fontFamily: "var(--mono)"
                 }}>{s.total}</div>
-                <div style={{ fontSize: 10, color: "var(--text-2)" }}>/ 50</div>
+                <div style={{ fontSize: 10, color: "var(--text-2)" }}>total</div>
               </div>
             </div>
           )) : <EmptyState msg="No students yet" />}
@@ -318,6 +334,7 @@ export function Dashboard({ data, semType, selClass, classes }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           {classes.map(cls => {
             const cs = students.filter(s => s.classSection === cls);
+            const rows = flattenCourseRows(cs);
             if (!cs.length) return null;
             return (
               <div key={cls}>
@@ -336,8 +353,8 @@ export function Dashboard({ data, semType, selClass, classes }) {
                   </span>
                 </div>
                 <div className="ia-analysis-grid">
-                  <IACard title="IA-I Analysis" field="iaI" students={cs} />
-                  <IACard title="IA-II Analysis" field="iaII" students={cs} />
+                  <IACard title="IA-I Analysis" field="iaI" students={rows} />
+                  <IACard title="IA-II Analysis" field="iaII" students={rows} />
                 </div>
               </div>
             );
@@ -345,8 +362,8 @@ export function Dashboard({ data, semType, selClass, classes }) {
         </div>
       ) : (
         <div className="ia-analysis-grid">
-          <IACard title={`IA-I — Class ${selClass}`} field="iaI" students={viewStudents} />
-          <IACard title={`IA-II — Class ${selClass}`} field="iaII" students={viewStudents} />
+          <IACard title={`IA-I — Class ${selClass}`} field="iaI" students={viewCourseRows} />
+          <IACard title={`IA-II — Class ${selClass}`} field="iaII" students={viewCourseRows} />
         </div>
       )}
     </div>
