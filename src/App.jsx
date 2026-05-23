@@ -1,55 +1,123 @@
-import { useState, useCallback } from "react";
-import { isStudentAtRisk, load, normalizeData, save } from "./utils/helpers";
-import { Search } from "./components/search";
-import { Dashboard } from "./components/Dashboard";
-import { Students } from "./components/Students";
+// src/App.jsx
+import { useState, useCallback, useEffect, useRef } from "react";
+import { isStudentAtRisk, normalizeData } from "./utils/helpers";
+import { loadFromFirestore, saveToFirestore } from "./utils/firestore";
+import { Search }      from "./components/search";
+import { Dashboard }   from "./components/Dashboard";
+import { Students }    from "./components/Students";
 import { ExcelUpload } from "./components/ExcelUpload";
-import { Reports } from "./components/Reports";
-import { Courses } from "./components/Courses";
-import { MarksEntry } from "./components/MarksEntry";
-import { CLASS_MAP } from "./utils/constants";
+import { Reports }     from "./components/Reports";
+import { Courses }     from "./components/Courses";
+import { MarksEntry }  from "./components/MarksEntry";
+import { CLASS_MAP }   from "./utils/constants";
 
 import "./App.css";
 import logo from "./assets/reva-2.png";
 
+// ------------------------------------------------------------------
+// Debounced Firestore save
+// We don't want to hammer Firestore on every keystroke, so we wait
+// SAVE_DELAY ms after the last change before writing.
+// ------------------------------------------------------------------
+const SAVE_DELAY = 800; // ms
+
 export default function App() {
-  const [tab, setTab] = useState("dashboard");
-  const [data, setData] = useState(load);
-  const [toast, setToast] = useState(null);
-  const [semType, setSemType] = useState("even");        // "odd" | "even"
-  const [selClass, setSelClass] = useState("all");         // "all" | "2A" | …
+  const [tab, setTab]         = useState("dashboard");
+  const [data, setData]       = useState({ students: [], courses: [] });
+  const [toast, setToast]     = useState(null);
+  const [semType, setSemType] = useState("even");
+  const [selClass, setSelClass] = useState("all");
+  const [menuOpen, setMenuOpen] = useState(true);
+
+  // "idle" | "loading" | "saving" | "error"
+  const [syncState, setSyncState] = useState("loading");
+
+  const saveTimerRef = useRef(null);
 
   const classes = CLASS_MAP[semType];
 
-  /* reset class selection when sem type changes */
-  const changeSem = t => { setSemType(t); setSelClass("all"); };
-  const [menuOpen, setMenuOpen] = useState(true);
+  // ── Bootstrap: load from Firestore on mount ──────────────────────
+  useEffect(() => {
+    setSyncState("loading");
+    loadFromFirestore()
+      .then(remote => {
+        setData(normalizeData(remote));
+        setSyncState("idle");
+      })
+      .catch(() => {
+        setSyncState("error");
+        notify("Could not load data from Firestore", "error");
+      });
+  }, []);
 
+  // ── Debounced save helper ────────────────────────────────────────
+  const scheduleSave = useCallback((nextData) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+
+    setSyncState("saving");
+
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await saveToFirestore(nextData);
+        setSyncState("idle");
+      } catch {
+        setSyncState("error");
+        notify("Auto-save failed — check your connection", "error");
+      }
+    }, SAVE_DELAY);
+  }, []);
+
+  // ── Updater (same API as before, but now also saves to Firestore) ─
   const update = useCallback(fn => {
     setData(prev => {
       const next = normalizeData(fn(structuredClone(prev)));
-      save(next);
+      scheduleSave(next);
       return next;
     });
-  }, []);
+  }, [scheduleSave]);
 
+  // ── Toast ────────────────────────────────────────────────────────
   const notify = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3200);
   };
 
+  const changeSem = t => { setSemType(t); setSelClass("all"); };
+
   const nav = [
-    { id: "search", icon: "🔍", label: "Search" },
-    { id: "dashboard", icon: "📊", label: "Dashboard" },
-    { id: "students", icon: "🎓", label: "Students" },
-    { id: "courses", icon: "📚", label: "Courses" },
-    { id: "marks", icon: "✏️", label: "Marks Entry" },
-    { id: "upload", icon: "⬆️", label: "Excel Upload" },
-    { id: "reports", icon: "📄", label: "Reports" },
+    { id: "search",    icon: "🔍", label: "Search"       },
+    { id: "dashboard", icon: "📊", label: "Dashboard"    },
+    { id: "students",  icon: "🎓", label: "Students"     },
+    { id: "courses",   icon: "📚", label: "Courses"      },
+    { id: "marks",     icon: "✏️",  label: "Marks Entry"  },
+    { id: "upload",    icon: "⬆️",  label: "Excel Upload" },
+    { id: "reports",   icon: "📄", label: "Reports"      },
   ];
 
-  const atRisk = data.students.filter(isStudentAtRisk).length;
+  const atRisk     = data.students.filter(isStudentAtRisk).length;
   const activeLabel = selClass === "all" ? "All Classes" : `Class ${selClass}`;
+
+  // ── Sync indicator ───────────────────────────────────────────────
+  const syncLabel = {
+    loading: { text: "Loading…",  color: "#a5b4fc" },
+    saving:  { text: "Saving…",   color: "#f59e0b" },
+    error:   { text: "Sync error", color: "#f87171" },
+    idle:    { text: "Saved ✓",   color: "#86efac" },
+  }[syncState];
+
+  // ── Loading gate ─────────────────────────────────────────────────
+  if (syncState === "loading") {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "center",
+        height: "100vh", flexDirection: "column", gap: 16,
+        fontFamily: "var(--sans)", color: "var(--text-2)",
+      }}>
+        <div style={{ fontSize: 40 }}>🔥</div>
+        <div style={{ fontSize: 16, fontWeight: 600 }}>Connecting to Firestore…</div>
+      </div>
+    );
+  }
 
   return (
     <div className={`app-shell ${menuOpen ? "menu-open" : "menu-closed"}`}>
@@ -67,7 +135,7 @@ export default function App() {
         <div style={{ padding: "10px 14px 4px" }}>
           <div style={{
             fontSize: 10, color: "#3d4270", fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6
+            textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6,
           }}>
             Semester Type
           </div>
@@ -88,7 +156,7 @@ export default function App() {
         <div style={{ padding: "8px 14px 4px" }}>
           <div style={{
             fontSize: 10, color: "#3d4270", fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6
+            textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6,
           }}>
             Class Section
           </div>
@@ -153,8 +221,7 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12  }}>
-
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
               className="menu-toggle"
               style={{ color: "black" }}
@@ -167,10 +234,19 @@ export default function App() {
               <span>{nav.find(n => n.id === tab)?.icon}</span>
               {nav.find(n => n.id === tab)?.label}
             </div>
-
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {/* ── Firestore sync indicator ── */}
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: "3px 10px",
+              borderRadius: 99, background: "var(--bg-2)",
+              color: syncLabel.color,
+              transition: "color 0.3s",
+            }}>
+              🔥 {syncLabel.text}
+            </span>
+
             <span className="sem-badge">
               {semType === "even" ? "Even" : "Odd"} Semester
             </span>
@@ -178,12 +254,8 @@ export default function App() {
             <span
               className="sem-badge"
               style={{
-                background: selClass === "all"
-                  ? "var(--bg-2)"
-                  : "var(--accent-bg)",
-                color: selClass === "all"
-                  ? "var(--text-2)"
-                  : "var(--accent)",
+                background: selClass === "all" ? "var(--bg-2)" : "var(--accent-bg)",
+                color:      selClass === "all" ? "var(--text-2)" : "var(--accent)",
               }}
             >
               {activeLabel}
@@ -193,25 +265,13 @@ export default function App() {
         </header>
 
         <div className="content-area">
-          {tab === "search" &&
-            <Search data={data} update={update} notify={notify}
-              selClass={selClass} classes={classes} />}
-          {tab === "dashboard" &&
-            <Dashboard data={data} selClass={selClass} classes={classes} />}
-          {tab === "students" &&
-            <Students data={data} update={update} notify={notify}
-              semType={semType} selClass={selClass} classes={classes} />}
-          {tab === "courses" &&
-            <Courses data={data} update={update} notify={notify} />}
-          {tab === "marks" &&
-            <MarksEntry data={data} update={update} notify={notify}
-              selClass={selClass} classes={classes} />}
-          {tab === "upload" &&
-            <ExcelUpload data={data} update={update} notify={notify}
-              classes={classes} />}
-          {tab === "reports" &&
-            <Reports data={data} notify={notify}
-              selClass={selClass} classes={classes} />}
+          {tab === "search"    && <Search     data={data} update={update} notify={notify} selClass={selClass} classes={classes} />}
+          {tab === "dashboard" && <Dashboard  data={data} selClass={selClass} classes={classes} />}
+          {tab === "students"  && <Students   data={data} update={update} notify={notify} semType={semType} selClass={selClass} classes={classes} />}
+          {tab === "courses"   && <Courses    data={data} update={update} notify={notify} />}
+          {tab === "marks"     && <MarksEntry data={data} update={update} notify={notify} selClass={selClass} classes={classes} />}
+          {tab === "upload"    && <ExcelUpload data={data} update={update} notify={notify} classes={classes} />}
+          {tab === "reports"   && <Reports    data={data} notify={notify} selClass={selClass} classes={classes} />}
         </div>
       </main>
 
