@@ -1,18 +1,21 @@
 import { isAtRisk } from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
-/* ── Tiny bar-chart component ──────────────────────────────────── */
+/* ── helpers ───────────────────────────────────────────────────── */
+function pct(n, total) {
+  return total > 0 ? Math.round((n / total) * 100) : 0;
+}
+
+/* ── mini bar ──────────────────────────────────────────────────── */
 function DistBar({ label, count, total, color }) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  const p = pct(count, total);
   return (
     <div className="dist-bar-row">
       <span className="dist-label">{label}</span>
       <div className="dist-track">
-        <div
-          className="dist-fill"
-          style={{ width: `${pct}%`, background: color, minWidth: count > 0 ? 28 : 0 }}
-        >
-          {pct > 10 ? `${pct}%` : ""}
+        <div className="dist-fill"
+          style={{ width: `${p}%`, background: color, minWidth: count > 0 ? 28 : 0 }}>
+          {p > 10 ? `${p}%` : ""}
         </div>
       </div>
       <span className="dist-count">{count}</span>
@@ -20,45 +23,39 @@ function DistBar({ label, count, total, color }) {
   );
 }
 
-/* ── IA Analysis Card ──────────────────────────────────────────── */
-function IAAnalysis({ title, field, students, maxMark = 25 }) {
+/* ── IA analysis for ONE IA (field = "iaI" | "iaII") ────────────── */
+function IACard({ title, field, students }) {
   const vals = students
-    .map(s => s[field] ?? null)
+    .map(s => s[field])
     .filter(v => v !== null && v !== undefined && v !== "");
 
-  if (vals.length === 0) {
+  if (!vals.length)
     return (
       <div className="card">
-        <div className="card-title">{title}</div>
-        <div className="empty">
-          <div className="empty-icon">📭</div>
-          <div>No {field.toUpperCase()} data yet</div>
-        </div>
+        <div className="card-title">{field === "iaI" ? "📝" : "📋"} {title}</div>
+        <EmptyState msg={`No ${field.toUpperCase()} data yet`} />
       </div>
     );
-  }
 
-  const total   = vals.length;
-  const avg     = (vals.reduce((a, v) => a + v, 0) / total).toFixed(1);
+  const total = vals.length;
+  const avg = (vals.reduce((a, v) => a + v, 0) / total).toFixed(1);
   const highest = Math.max(...vals);
-  const lowest  = Math.min(...vals);
+  const lowest = Math.min(...vals);
   const passing = vals.filter(v => v >= 9).length;
-  const passRate = Math.round((passing / total) * 100);
+  const passRate = pct(passing, total);
 
-  // Buckets: <5 | 5–8 | 9–14 | 15–19 | 20–25
-  const b0 = vals.filter(v => v < 5).length;
-  const b1 = vals.filter(v => v >= 5  && v <= 8).length;
-  const b2 = vals.filter(v => v >= 9  && v <= 14).length;
-  const b3 = vals.filter(v => v >= 15 && v <= 19).length;
-  const b4 = vals.filter(v => v >= 20).length;
-
-  const isIA1 = field === "iaI";
+  const buckets = [
+    { label: "< 5", count: vals.filter(v => v < 5).length, color: "#ef4444" },
+    { label: "5–8", count: vals.filter(v => v >= 5 && v <= 8).length, color: "#f59e0b" },
+    { label: "9–14", count: vals.filter(v => v >= 9 && v <= 14).length, color: "#3b82f6" },
+    { label: "15–19", count: vals.filter(v => v >= 15 && v <= 19).length, color: "#22c55e" },
+    { label: "20–25", count: vals.filter(v => v >= 20).length, color: "#5b5ef4" },
+  ];
 
   return (
     <div className="card">
       <div className="card-title">
-        <span>{isIA1 ? "📝" : "📋"}</span>
-        {title}
+        {field === "iaI" ? "📝" : "📋"} {title}
         <span style={{
           marginLeft: "auto", fontSize: 11, fontWeight: 700,
           color: passRate >= 75 ? "#22c55e" : passRate >= 50 ? "#f59e0b" : "#ef4444",
@@ -69,88 +66,123 @@ function IAAnalysis({ title, field, students, maxMark = 25 }) {
         </span>
       </div>
 
-      {/* Stats row */}
       <div className="ia-stat-row">
-        <div className="ia-stat">
-          <div className="ia-stat-val" style={{ color: "#5b5ef4" }}>{avg}</div>
-          <div className="ia-stat-lbl">Average</div>
-        </div>
-        <div className="ia-stat">
-          <div className="ia-stat-val" style={{ color: "#22c55e" }}>{highest}</div>
-          <div className="ia-stat-lbl">Highest</div>
-        </div>
-        <div className="ia-stat">
-          <div className="ia-stat-val" style={{ color: "#ef4444" }}>{lowest}</div>
-          <div className="ia-stat-lbl">Lowest</div>
-        </div>
-        <div className="ia-stat">
-          <div className="ia-stat-val">{passing}/{total}</div>
-          <div className="ia-stat-lbl">Passing</div>
-        </div>
+        {[["avg", avg, "#5b5ef4"], ["highest", highest, "#22c55e"],
+        ["lowest", lowest, "#ef4444"], [`${passing}/${total}`, "passing", "var(--text-h)"]
+        ].map(([val, lbl, col], i) => (
+          <div key={i} className="ia-stat">
+            <div className="ia-stat-val" style={{ color: i < 3 ? col : "var(--text-h)" }}>
+              {val}
+            </div>
+            <div className="ia-stat-lbl">{i === 3 ? "Passing" : lbl}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Pass rate bar */}
-      <div style={{ marginTop: 14, marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between",
-          fontSize: 11, color: "#8b90a7", marginBottom: 5, fontWeight: 600 }}>
-          <span>Pass rate (≥ 9/{maxMark})</span>
-          <span>{passing} passing · {total - passing} at risk</span>
+      <div style={{ margin: "12px 0 10px" }}>
+        <div style={{
+          display: "flex", justifyContent: "space-between",
+          fontSize: 11, color: "#8b90a7", marginBottom: 5, fontWeight: 600
+        }}>
+          <span>Pass rate (≥ 9/25)</span>
+          <span>{passing} pass · {total - passing} risk</span>
         </div>
         <div className="stats-bar">
           <div className="stats-fill" style={{ width: `${passRate}%` }} />
         </div>
       </div>
 
-      {/* Distribution */}
-      <div style={{ fontSize: 11, color: "#8b90a7", fontWeight: 700,
-        textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8 }}>
-        Score Distribution (out of {maxMark})
+      <div style={{
+        fontSize: 11, color: "#8b90a7", fontWeight: 700,
+        textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 8
+      }}>
+        Distribution (out of 25)
       </div>
-      <DistBar label="< 5"    count={b0} total={total} color="#ef4444" />
-      <DistBar label="5 – 8"  count={b1} total={total} color="#f59e0b" />
-      <DistBar label="9 – 14" count={b2} total={total} color="#3b82f6" />
-      <DistBar label="15–19"  count={b3} total={total} color="#22c55e" />
-      <DistBar label="20–25"  count={b4} total={total} color="#5b5ef4" />
+      {buckets.map(b =>
+        <DistBar key={b.label} {...b} total={total} />
+      )}
     </div>
   );
 }
 
-/* ── Dashboard ─────────────────────────────────────────────────── */
-export function Dashboard({ data, semType }) {
+/* ── per-class row in overview table ───────────────────────────── */
+function ClassRow({ cls, students, onClick, selected }) {
+  const total = students.length;
+  const risk = students.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0)).length;
+  const avgI = total ? (students.reduce((a, s) => a + (s.iaI || 0), 0) / total).toFixed(1) : "—";
+  const avgII = total ? (students.reduce((a, s) => a + (s.iaII || 0), 0) / total).toFixed(1) : "—";
+  const passR = pct(total - risk, total);
+
+  return (
+    <tr onClick={onClick} style={{
+      cursor: "pointer",
+      background: selected ? "var(--accent-bg)" : "transparent"
+    }}>
+      <td><span style={{
+        fontWeight: 800, fontSize: 14,
+        color: "var(--accent)"
+      }}>{cls}</span></td>
+      <td style={{ fontWeight: 600 }}>{total}</td>
+      <td style={{ fontFamily: "var(--mono)", fontWeight: 700 }}>{avgI}</td>
+      <td style={{ fontFamily: "var(--mono)", fontWeight: 700 }}>{avgII}</td>
+      <td>
+        <span style={{
+          fontWeight: 700,
+          color: risk > 0 ? "#f59e0b" : "#22c55e"
+        }}>{risk}</span>
+      </td>
+      <td>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="stats-bar" style={{ flex: 1, height: 6 }}>
+            <div className="stats-fill" style={{ width: `${passR}%` }} />
+          </div>
+          <span style={{
+            fontSize: 12, fontWeight: 700, color: "var(--text-2)",
+            width: 34, textAlign: "right"
+          }}>{passR}%</span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+/* ══ Dashboard ════════════════════════════════════════════════════ */
+export function Dashboard({ data, semType, selClass, classes }) {
   const { students } = data;
 
-  const totalStudents = students.length;
-  const atRiskCount   = students.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0)).length;
-  const passCount     = totalStudents - atRiskCount;
+  /* filter by class if one is selected */
+  const viewStudents = selClass === "all"
+    ? students
+    : students.filter(s => s.classSection === selClass);
 
-  const avgIAI = students.length
-    ? (students.reduce((a, s) => a + (s.iaI  || 0), 0) / students.length).toFixed(1) : 0;
-  const avgIAII = students.length
-    ? (students.reduce((a, s) => a + (s.iaII || 0), 0) / students.length).toFixed(1) : 0;
+  const total = viewStudents.length;
+  const atRisk = viewStudents.filter(s => isAtRisk(s.iaI || 0, s.iaII || 0)).length;
+  const passCount = total - atRisk;
+  const avgI = total
+    ? (viewStudents.reduce((a, s) => a + (s.iaI || 0), 0) / total).toFixed(1) : 0;
+  const avgII = total
+    ? (viewStudents.reduce((a, s) => a + (s.iaII || 0), 0) / total).toFixed(1) : 0;
 
-  const topStudents = [...students]
+  const topStudents = [...viewStudents]
     .map(s => ({ ...s, total: (s.iaI || 0) + (s.iaII || 0) }))
-    .sort((a, b) => b.total - a.total)
-    .slice(0, 5);
-
-  const passRate = totalStudents > 0 ? Math.round((passCount / totalStudents) * 100) : 0;
+    .sort((a, b) => b.total - a.total).slice(0, 5);
 
   const kpis = [
-    { label: "Total Students", value: totalStudents, icon: "🎓", color: "#5b5ef4" },
-    { label: "Avg IA-I",       value: `${avgIAI}/25`, icon: "📝", color: "#22c55e" },
-    { label: "Avg IA-II",      value: `${avgIAII}/25`, icon: "📋", color: "#f59e0b" },
-    { label: "At Risk",        value: atRiskCount, icon: "⚠️", color: "#ef4444" },
+    { label: "Students", value: total, icon: "🎓", color: "#5b5ef4" },
+    { label: "Avg IA-I", value: `${avgI}/25`, icon: "📝", color: "#22c55e" },
+    { label: "Avg IA-II", value: `${avgII}/25`, icon: "📋", color: "#f59e0b" },
+    { label: "At Risk", value: atRisk, icon: "⚠️", color: "#ef4444" },
   ];
-
-  const rankColors = ["#F7971E", "#9CA3AF", "#CD7C2F", "#E5E7EB", "#E5E7EB"];
-  const rankText   = ["#fff", "#fff", "#fff", "#374151", "#374151"];
+  const rankBg = ["#F7971E", "#9CA3AF", "#CD7C2F", "#E5E7EB", "#E5E7EB"];
+  const rankClr = ["#fff", "#fff", "#fff", "#374151", "#374151"];
 
   return (
     <div>
-      {/* KPI Cards */}
+      {/* KPI */}
       <div className="kpi-grid">
         {kpis.map(k => (
-          <div key={k.label} className="kpi-card" style={{ borderTop: `3px solid ${k.color}` }}>
+          <div key={k.label} className="kpi-card"
+            style={{ borderTop: `3px solid ${k.color}` }}>
             <div className="kpi-icon">{k.icon}</div>
             <div className="kpi-value" style={{ color: k.color }}>{k.value}</div>
             <div className="kpi-label">{k.label}</div>
@@ -158,103 +190,165 @@ export function Dashboard({ data, semType }) {
         ))}
       </div>
 
-      {/* Pass vs Risk + Top Performers */}
+      {/* Pass/Risk + Top performers */}
       <div className="charts-row">
-        {/* Pass vs At-Risk */}
         <div className="card">
-          <div className="card-title">📊 Pass vs At-Risk</div>
-          {students.length ? (
+          <div className="card-title">📊 Pass vs At-Risk
+            {selClass !== "all" && (
+              <span style={{
+                marginLeft: 6, fontSize: 11, background: "var(--accent-bg)",
+                color: "var(--accent)", padding: "2px 8px", borderRadius: 99
+              }}>
+                Class {selClass}
+              </span>
+            )}
+          </div>
+          {total ? (
             <>
-              <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
-                <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 40, fontWeight: 900, color: "#22c55e", fontFamily: "var(--mono)", lineHeight: 1 }}>
-                    {passCount}
+              <div style={{ display: "flex", gap: 20, marginBottom: 16 }}>
+                {[
+                  [passCount, "Passing", "#22c55e", "IA ≥ 9"],
+                  [atRisk, "At Risk", "#f59e0b", "IA < 9"],
+                ].map(([n, lbl, col, sub]) => (
+                  <div key={lbl} style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{
+                      fontSize: 40, fontWeight: 900, color: col,
+                      fontFamily: "var(--mono)", lineHeight: 1
+                    }}>{n}</div>
+                    <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 4 }}>{lbl}</div>
+                    <div style={{ fontSize: 12, color: col, fontWeight: 700 }}>{sub}</div>
                   </div>
-                  <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 4, fontWeight: 500 }}>Passing</div>
-                  <div style={{ fontSize: 12, color: "#22c55e", fontWeight: 700 }}>IA ≥ 9</div>
-                </div>
-                <div style={{ width: 1, background: "var(--border-soft)" }} />
-                <div style={{ textAlign: "center", flex: 1 }}>
-                  <div style={{ fontSize: 40, fontWeight: 900, color: "#f59e0b", fontFamily: "var(--mono)", lineHeight: 1 }}>
-                    {atRiskCount}
-                  </div>
-                  <div style={{ fontSize: 12, color: "#8b90a7", marginTop: 4, fontWeight: 500 }}>At Risk</div>
-                  <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700 }}>IA &lt; 9</div>
-                </div>
+                ))}
               </div>
-
-              {/* Visual bar */}
-              <div style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between",
-                  fontSize: 11, color: "#8b90a7", marginBottom: 5, fontWeight: 600 }}>
-                  <span>Overall pass rate</span>
-                  <span>{passRate}%</span>
-                </div>
-                <div className="stats-bar">
-                  <div className="stats-fill" style={{ width: `${passRate}%` }} />
-                </div>
+              <div className="stats-bar">
+                <div className="stats-fill" style={{ width: `${pct(passCount, total)}%` }} />
               </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between",
-                fontSize: 11, color: "#8b90a7", marginTop: 12 }}>
-                <span>🟢 {passCount} students passing</span>
-                <span>⚠️ {atRiskCount} need attention</span>
+              <div style={{
+                display: "flex", justifyContent: "space-between",
+                fontSize: 11, color: "#8b90a7", marginTop: 8
+              }}>
+                <span>🟢 {passCount} passing</span>
+                <span>⚠️ {atRisk} need attention</span>
               </div>
             </>
-          ) : <div className="empty"><div className="empty-icon">📭</div><div>No students yet</div></div>}
+          ) : <EmptyState msg="No students" />}
         </div>
 
-        {/* Top Performers */}
         <div className="card">
           <div className="card-title">🏆 Top Performers</div>
           {topStudents.length ? topStudents.map((s, i) => (
             <div key={s.id} className="top-row">
-              <span className="rank" style={{ background: rankColors[i], color: rankText[i] }}>
-                {i + 1}
-              </span>
+              <span className="rank"
+                style={{ background: rankBg[i], color: rankClr[i] }}>{i + 1}</span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-h)" }}>{s.name}</div>
+                <div style={{
+                  fontWeight: 600, fontSize: 14,
+                  color: "var(--text-h)"
+                }}>{s.name}</div>
                 <div style={{ fontSize: 11, color: "var(--text-2)" }}>
+                  {s.classSection && <span style={{
+                    marginRight: 6,
+                    background: "var(--accent-bg)", color: "var(--accent)",
+                    padding: "1px 6px", borderRadius: 4, fontSize: 10,
+                    fontWeight: 700
+                  }}>{s.classSection}</span>}
                   IA-I: {s.iaI || 0} · IA-II: {s.iaII || 0}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 15, color: "#5b5ef4", fontWeight: 800, fontFamily: "var(--mono)" }}>
-                  {s.total}
-                </div>
+                <div style={{
+                  fontSize: 15, color: "#5b5ef4", fontWeight: 800,
+                  fontFamily: "var(--mono)"
+                }}>{s.total}</div>
                 <div style={{ fontSize: 10, color: "var(--text-2)" }}>/ 50</div>
               </div>
             </div>
-          )) : <div className="empty"><div className="empty-icon">📭</div><div>No students yet</div></div>}
+          )) : <EmptyState msg="No students yet" />}
         </div>
       </div>
 
-      {/* ── IA Analysis Section ── */}
-      <div style={{ marginBottom: 12 }}>
-        <div style={{
-          fontSize: 11, fontWeight: 700, color: "var(--text-2)",
-          textTransform: "uppercase", letterSpacing: "0.8px",
-          borderBottom: "1px solid var(--border-soft)",
-          paddingBottom: 8, marginBottom: 16
-        }}>
-          Internal Assessment Analysis
+      {/* ── Class Overview table (only when "All" is selected) ── */}
+      {selClass === "all" && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-title">🏫 Class-wise Overview</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {["Class", "Students", "Avg IA-I", "Avg IA-II", "At Risk", "Pass Rate"].map(h =>
+                    <th key={h}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {classes.map(cls => {
+                  const cs = students.filter(s => s.classSection === cls);
+                  if (!cs.length) return (
+                    <tr key={cls} style={{ opacity: 0.45 }}>
+                      <td><span style={{ fontWeight: 800, color: "var(--accent)" }}>{cls}</span></td>
+                      <td colSpan={5} style={{ color: "var(--text-2)", fontSize: 13 }}>No students assigned</td>
+                    </tr>
+                  );
+                  return <ClassRow key={cls} cls={cls} students={cs} selected={false} onClick={() => { }} />;
+                })}
+                {/* Unassigned */}
+                {(() => {
+                  const unassigned = students.filter(s => !s.classSection || !classes.includes(s.classSection));
+                  if (!unassigned.length) return null;
+                  return <ClassRow key="—" cls="Unassigned" students={unassigned} selected={false} onClick={() => { }} />;
+                })()}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+
+      {/* ── IA Analysis ─────────────────────────────────────────── */}
+      <div style={{
+        fontSize: 11, fontWeight: 700, color: "var(--text-2)",
+        textTransform: "uppercase", letterSpacing: "0.8px",
+        borderBottom: "1px solid var(--border-soft)",
+        paddingBottom: 8, marginBottom: 16
+      }}>
+        Internal Assessment Analysis
+        {selClass !== "all" && ` — Class ${selClass}`}
       </div>
 
-      <div className="ia-analysis-grid">
-        <IAAnalysis
-          title="IA-I Marks Analysis"
-          field="iaI"
-          students={students}
-          maxMark={25}
-        />
-        <IAAnalysis
-          title="IA-II Marks Analysis"
-          field="iaII"
-          students={students}
-          maxMark={25}
-        />
-      </div>
+      {selClass === "all" ? (
+        /* Per-class grid: 2-col pairs of IA-I / IA-II */
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {classes.map(cls => {
+            const cs = students.filter(s => s.classSection === cls);
+            if (!cs.length) return null;
+            return (
+              <div key={cls}>
+                <div style={{
+                  fontSize: 13, fontWeight: 700, color: "var(--text-h)",
+                  marginBottom: 10, display: "flex", alignItems: "center", gap: 8
+                }}>
+                  <span style={{
+                    background: "var(--accent-bg)", color: "var(--accent)",
+                    padding: "2px 12px", borderRadius: 6, fontWeight: 800
+                  }}>
+                    Class {cls}
+                  </span>
+                  <span style={{ color: "var(--text-2)", fontSize: 12 }}>
+                    ({cs.length} students)
+                  </span>
+                </div>
+                <div className="ia-analysis-grid">
+                  <IACard title="IA-I Analysis" field="iaI" students={cs} />
+                  <IACard title="IA-II Analysis" field="iaII" students={cs} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="ia-analysis-grid">
+          <IACard title={`IA-I — Class ${selClass}`} field="iaI" students={viewStudents} />
+          <IACard title={`IA-II — Class ${selClass}`} field="iaII" students={viewStudents} />
+        </div>
+      )}
     </div>
   );
 }
