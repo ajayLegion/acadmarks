@@ -5,7 +5,7 @@ import { Students } from "./components/Students";
 import { ExcelUpload } from "./components/ExcelUpload";
 import { Reports } from "./components/Reports";
 import "./App.css";
-import logo from "./assets/reva.png";
+import logo from "./assets/reva-2.png";
 
 /* ── Class lists per semester type ─────────────────────────────── */
 export const CLASS_MAP = {
@@ -57,8 +57,7 @@ export default function App() {
         <div className="brand">
           <div className="brand-icon"><img src={logo} alt="Reva University" /></div>
           <div>
-            <div className="brand-title">AcadMarks</div>
-            <div className="brand-sub">IA Tracking Portal For EE</div>
+            <div className="brand-sub">IA Marks Portal For EE</div>
           </div>
         </div>
 
