@@ -1,107 +1,62 @@
 import { useState, useRef } from "react";
 import * as XLSX from "xlsx";
-import {
-  IA_GAP_MONTHS,
-  IA_MAX,
-  IA_THRESHOLD,
-  MAX_SEMESTER_COURSES,
-  MIN_SEMESTER_COURSES,
-} from "../utils/constants";
 import { uid } from "../utils/helpers";
-
-const HEADER_ALIASES = {
-  srn: "SRN",
-  usn: "SRN",
-
-  studentname: "Student Name",
-  name: "Student Name",
-
-  semester: "Semester",
-  sem: "Semester",
-
-  section: "Section",
-  class: "Section",
-
-  coursecode: "Course Code",
-  subjectcode: "Course Code",
-
-  coursename: "Course Name",
-  subjectname: "Course Name",
-  subject: "Course Name",
-  elective: "Course Type",
-  coursetype: "Course Type",
-  subjecttype: "Course Type",
-
-  iai: "IA-I",
-  ia1: "IA-I",
-  internal1: "IA-I",
-  iaidate: "IA-I Date",
-  ia1date: "IA-I Date",
-
-  iaii: "IA-II",
-  ia2: "IA-II",
-  internal2: "IA-II",
-  iaiidate: "IA-II Date",
-  ia2date: "IA-II Date",
-};
-
-const normalizeHeader = key =>
-  key
-    .toLowerCase()
-    .replace(/[\s-_]/g, "");
-
-const normalizeRow = row => {
-  const formatted = {};
-
-  Object.keys(row).forEach(key => {
-    const normalized = normalizeHeader(key);
-
-    const mappedKey =
-      HEADER_ALIASES[normalized] || key;
-
-    formatted[mappedKey] = row[key];
-  });
-
-  return formatted;
-};
-
-const calculateRiskLevel = courses => {
-  const failed = courses.filter(
-    c => c.iaI < IA_THRESHOLD || c.iaII < IA_THRESHOLD
-  ).length;
-
-  if (failed >= 3) return "HIGH";
-  if (failed >= 1) return "MEDIUM";
-  return "SAFE";
-};
-
-const parseOptionalDate = value => {
-  if (!value) return null;
-  if (value instanceof Date) return value;
-
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const getGapDays = (start, end) => {
-  if (!start || !end) return null;
-  return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-};
+import {
+  IA_THRESHOLD,
+} from "../utils/constants";
 
 export function ExcelUpload({
   update,
   notify,
 }) {
-  const [preview, setPreview] = useState([]);
-  const [status, setStatus] = useState("");
-  const [dragging, setDragging] =
-    useState(false);
+  const [preview, setPreview] =
+    useState([]);
 
-  const [errors, setErrors] = useState([]);
+  const [status, setStatus] =
+    useState("");
+
+  const [errors, setErrors] =
+    useState([]);
+
   const [summary, setSummary] =
     useState(null);
 
+  const [dragging, setDragging] =
+    useState(false);
+
+  const [uploadType, setUploadType] =
+    useState("IA-I");
+
   const fileRef = useRef();
+
+  const normalizeHeader = key =>
+    key
+      .toLowerCase()
+      .replace(/[\s-_]/g, "");
+
+  const BASE_FIELDS = [
+    "srn",
+    "studentname",
+    "semester",
+    "section",
+  ];
+
+  const calculateRiskLevel = courses => {
+    const failed = courses.filter(
+      c =>
+        (!c.iaIAbsent &&
+          c.iaI !== null &&
+          c.iaI < IA_THRESHOLD) ||
+        (!c.iaIIAbsent &&
+          c.iaII !== null &&
+          c.iaII < IA_THRESHOLD)
+    ).length;
+
+    if (failed >= 3) return "HIGH";
+    if (failed >= 1) return "MEDIUM";
+
+    return "SAFE";
+  };
 
   const processFile = file => {
     if (!file) return;
@@ -118,6 +73,7 @@ export function ExcelUpload({
         "Only .xlsx .xls .csv supported",
         "error"
       );
+
       return;
     }
 
@@ -137,108 +93,72 @@ export function ExcelUpload({
           workbook.SheetNames[0]
           ];
 
-        let rows = XLSX.utils.sheet_to_json(
-          sheet,
-          {
-            defval: "",
-          }
-        );
+        let rows =
+          XLSX.utils.sheet_to_json(
+            sheet,
+            {
+              defval: "",
+            }
+          );
 
         if (!rows.length) {
-          notify("Excel sheet is empty");
+          notify("Excel sheet empty");
+
           return;
         }
-
-        rows = rows.map(normalizeRow);
 
         const validationErrors = [];
 
         const cleanedRows = [];
 
-        rows.forEach((row, index) => {
+        rows.forEach((rawRow, index) => {
+          const row = {};
+
+          Object.keys(rawRow).forEach(
+            key => {
+              row[
+                normalizeHeader(key)
+              ] = rawRow[key];
+            }
+          );
+
           const SRN = String(
-            row["SRN"] || ""
+            row.srn || ""
           ).trim();
 
           const studentName = String(
-            row["Student Name"] || ""
+            row.studentname || ""
           ).trim();
 
           const semester = String(
-            row["Semester"] || ""
+            row.semester || ""
           ).trim();
 
           const section = String(
-            row["Section"] || ""
+            row.section || ""
           ).trim();
-
-          const courseCode = String(
-            row["Course Code"] || ""
-          ).trim();
-
-          const courseName = String(
-            row["Course Name"] || ""
-          ).trim();
-
-          const courseType = String(
-            row["Course Type"] || "Core"
-          ).trim() || "Core";
-
-          const iaI = Number(
-            row["IA-I"] || 0
-          );
-
-          const iaII = Number(
-            row["IA-II"] || 0
-          );
-
-          const iaIDate = parseOptionalDate(row["IA-I Date"]);
-          const iaIIDate = parseOptionalDate(row["IA-II Date"]);
-          const gapDays = getGapDays(iaIDate, iaIIDate);
 
           const rowErrors = [];
 
           if (!SRN)
-            rowErrors.push("Missing SRN");
+            rowErrors.push(
+              "Missing SRN"
+            );
 
           if (!studentName)
             rowErrors.push(
               "Missing Student Name"
             );
 
-          if (!courseCode)
+          if (!semester)
             rowErrors.push(
-              "Missing Course Code"
+              "Missing Semester"
             );
 
-          if (!courseName)
+          if (!section)
             rowErrors.push(
-              "Missing Course Name"
+              "Missing Section"
             );
-
-          if (
-            iaI < 0 ||
-            iaI > IA_MAX
-          ) {
-            rowErrors.push(
-              "Invalid IA-I Marks"
-            );
-          }
-
-          if (
-            iaII < 0 ||
-            iaII > IA_MAX
-          ) {
-            rowErrors.push(
-              "Invalid IA-II Marks"
-            );
-          }
-
-          if (gapDays !== null && (gapDays < 40 || gapDays > 50)) {
-            rowErrors.push(
-              `IA-I and IA-II should be about ${IA_GAP_MONTHS} months apart`
-            );
-          }
 
           if (rowErrors.length) {
             validationErrors.push({
@@ -249,73 +169,140 @@ export function ExcelUpload({
             return;
           }
 
+          const courses = [];
+
+          Object.keys(row).forEach(
+            key => {
+              if (
+                BASE_FIELDS.includes(key)
+              ) {
+                return;
+              }
+
+              const rawValue =
+                row[key];
+
+              if (
+                rawValue === "" ||
+                rawValue === null ||
+                rawValue === undefined
+              ) {
+                return;
+              }
+
+              const isAbsent =
+                String(
+                  rawValue
+                ).toLowerCase() ===
+                "absent";
+
+              const marks = isAbsent
+                ? null
+                : Number(rawValue);
+
+              if (
+                !isAbsent &&
+                Number.isNaN(marks)
+              ) {
+                validationErrors.push({
+                  row: index + 2,
+                  errors: [
+                    `Invalid marks in ${key}`,
+                  ],
+                });
+
+                return;
+              }
+
+              courses.push({
+                courseCode:
+                  key.toUpperCase(),
+
+                courseName:
+                  key.toUpperCase(),
+
+                iaI:
+                  uploadType ===
+                    "IA-I"
+                    ? marks
+                    : null,
+
+                iaII:
+                  uploadType ===
+                    "IA-II"
+                    ? marks
+                    : null,
+
+                iaIAbsent:
+                  uploadType ===
+                  "IA-I" && isAbsent,
+
+                iaIIAbsent:
+                  uploadType ===
+                  "IA-II" && isAbsent,
+              });
+            }
+          );
+
           cleanedRows.push({
             SRN,
             studentName,
             semester,
             section,
-            courseCode,
-            courseName,
-            courseType,
-            iaI,
-            iaII,
-            iaIDate: iaIDate ? iaIDate.toISOString().slice(0, 10) : "",
-            iaIIDate: iaIIDate ? iaIIDate.toISOString().slice(0, 10) : "",
+            courses,
           });
         });
 
-        const loadWarnings = [];
-        const groupedByStudent = cleanedRows.reduce((acc, row) => {
-          const key = `${row.SRN}__${row.semester}`;
-          acc[key] = acc[key] || {
-            SRN: row.SRN,
-            studentName: row.studentName,
-            semester: row.semester,
-            courseCodes: new Set(),
-          };
-          acc[key].courseCodes.add(row.courseCode);
-          return acc;
-        }, {});
-
-        Object.values(groupedByStudent).forEach(group => {
-          const count = group.courseCodes.size;
-          if (count < MIN_SEMESTER_COURSES || count > MAX_SEMESTER_COURSES) {
-            loadWarnings.push({
-              row: "-",
-              errors: [
-                `${group.SRN} (${group.studentName}) has ${count} courses for semester ${group.semester || "unassigned"}; expected ${MIN_SEMESTER_COURSES}-${MAX_SEMESTER_COURSES}`,
-              ],
-            });
-          }
-        });
-
         const totalStudents =
-          new Set(
-            cleanedRows.map(r => r.SRN)
-          ).size;
-
-        const totalCourses =
           cleanedRows.length;
 
-        const atRiskCount =
-          cleanedRows.filter(
-            r =>
-              r.iaI < IA_THRESHOLD ||
-              r.iaII < IA_THRESHOLD
-          ).length;
+        const totalCourses =
+          cleanedRows.reduce(
+            (acc, s) =>
+              acc +
+              s.courses.length,
+            0
+          );
+
+        const atRisk =
+          cleanedRows.reduce(
+            (acc, s) => {
+              return (
+                acc +
+                s.courses.filter(
+                  c =>
+                    (!c.iaIAbsent &&
+                      c.iaI !==
+                      null &&
+                      c.iaI <
+                      IA_THRESHOLD) ||
+                    (!c.iaIIAbsent &&
+                      c.iaII !==
+                      null &&
+                      c.iaII <
+                      IA_THRESHOLD)
+                ).length
+              );
+            },
+            0
+          );
 
         setPreview(cleanedRows);
 
-        setErrors([...validationErrors, ...loadWarnings]);
+        setErrors(validationErrors);
 
         setSummary({
-          students: totalStudents,
-          courses: totalCourses,
-          atRisk: atRiskCount,
+          students:
+            totalStudents,
+
+          courses:
+            totalCourses,
+
+          atRisk,
         });
 
         setStatus(
-          `Loaded ${cleanedRows.length} valid rows`
+          `Loaded ${cleanedRows.length} students`
         );
       } catch (err) {
         console.error(err);
@@ -334,108 +321,123 @@ export function ExcelUpload({
     if (!preview.length) return;
 
     let addedStudents = 0;
+
     let addedCourses = 0;
 
     update(d => {
-      preview.forEach(row => {
-        let student =
-          d.students.find(
-            s => s.SRN === row.SRN
+      preview.forEach(
+        studentRow => {
+          let student =
+            d.students.find(
+              s =>
+                s.SRN ===
+                studentRow.SRN
+            );
+
+          if (!student) {
+            student = {
+              id: uid(),
+
+              SRN:
+                studentRow.SRN,
+
+              name:
+                studentRow.studentName,
+
+              semester:
+                studentRow.semester,
+
+              section:
+                studentRow.section,
+
+              classSection: `${studentRow.semester}${studentRow.section}`,
+
+              courses: [],
+
+              riskLevel:
+                "SAFE",
+            };
+
+            d.students.push(
+              student
+            );
+
+            addedStudents++;
+          }
+
+          studentRow.courses.forEach(
+            incomingCourse => {
+              const existingCourse =
+                student.courses.find(
+                  c =>
+                    c.courseCode ===
+                    incomingCourse.courseCode
+                );
+
+              if (
+                existingCourse
+              ) {
+                if (
+                  incomingCourse.iaI !==
+                  null
+                ) {
+                  existingCourse.iaI =
+                    incomingCourse.iaI;
+
+                  existingCourse.iaIAbsent =
+                    incomingCourse.iaIAbsent;
+                }
+
+                if (
+                  incomingCourse.iaII !==
+                  null
+                ) {
+                  existingCourse.iaII =
+                    incomingCourse.iaII;
+
+                  existingCourse.iaIIAbsent =
+                    incomingCourse.iaIIAbsent;
+                }
+              } else {
+                student.courses.push({
+                  ...incomingCourse,
+                });
+
+                addedCourses++;
+              }
+
+              if (
+                !d.courses.some(
+                  c =>
+                    c.code ===
+                    incomingCourse.courseCode
+                )
+              ) {
+                d.courses.push({
+                  id: uid(),
+
+                  code:
+                    incomingCourse.courseCode,
+
+                  name:
+                    incomingCourse.courseName,
+                });
+              }
+            }
           );
 
-        if (!student) {
-          student = {
-            id: uid(),
-            SRN: row.SRN,
-            name: row.studentName,
-            semester: row.semester,
-            section: row.section,
-            classSection: row.semester && row.section ? `${row.semester}${row.section}` : "",
-            courses: [],
-            riskLevel: "SAFE",
-          };
-
-          d.students.push(student);
-
-          addedStudents++;
-        } else {
-          student.name = row.studentName || student.name;
-          student.semester = row.semester || student.semester;
-          student.section = row.section || student.section;
-          student.classSection =
-            row.semester && row.section ? `${row.semester}${row.section}` : student.classSection;
+          student.riskLevel =
+            calculateRiskLevel(
+              student.courses
+            );
         }
-
-        const existingCourse =
-          student.courses.find(
-            c =>
-              c.courseCode ===
-              row.courseCode
-          );
-
-        if (existingCourse) {
-          existingCourse.courseName =
-            row.courseName;
-
-          existingCourse.courseType =
-            row.courseType;
-
-          existingCourse.iaI =
-            row.iaI;
-
-          existingCourse.iaII =
-            row.iaII;
-
-          existingCourse.iaIDate =
-            row.iaIDate;
-
-          existingCourse.iaIIDate =
-            row.iaIIDate;
-        } else {
-          student.courses.push({
-            courseCode:
-              row.courseCode,
-
-            courseName:
-              row.courseName,
-
-            courseType:
-              row.courseType,
-
-            iaI: row.iaI,
-
-            iaII: row.iaII,
-
-            iaIDate: row.iaIDate,
-
-            iaIIDate: row.iaIIDate,
-          });
-
-          addedCourses++;
-        }
-
-        if (!d.courses.some(c => c.code === row.courseCode)) {
-          d.courses.push({
-            id: uid(),
-            code: row.courseCode,
-            name: row.courseName,
-            semester: row.semester,
-            type: row.courseType,
-            credits: "",
-          });
-        }
-
-        student.riskLevel =
-          calculateRiskLevel(
-            student.courses
-          );
-      });
+      );
 
       return d;
     });
 
     notify(
-      `Imported ${addedStudents} new students · ${addedCourses} courses added`
+      `Imported ${addedStudents} students · ${addedCourses} courses`
     );
 
     setPreview([]);
@@ -452,55 +454,32 @@ export function ExcelUpload({
           "Student Name",
           "Semester",
           "Section",
-          "Course Code",
-          "Course Name",
-          "Course Type",
-          "IA-I",
-          "IA-II",
-          "IA-I Date",
-          "IA-II Date",
-        ],
-
-        [
-          "1RV22EE001",
-          "Ajay",
-          "4",
-          "A",
           "EE401",
-          "Electrical Machines",
-          "Core",
-          "15",
-          "18",
-          "2026-01-15",
-          "2026-03-01",
-        ],
-
-        [
-          "1RV22EE001",
-          "Ajay",
-          "4",
-          "A",
           "EE402",
-          "Power Systems",
-          "Elective",
-          "12",
-          "17",
-          "2026-01-15",
-          "2026-03-01",
+          "EE451",
+          "CS410",
         ],
 
         [
-          "1RV22EE002",
-          "Rahul",
+          "R23EM090",
+          "SINCHANA S",
           "4",
-          "B",
-          "EE401",
-          "Electrical Machines",
-          "Core",
-          "7",
-          "8",
-          "2026-01-15",
-          "2026-03-01",
+          "A",
+          15,
+          17,
+          "absent",
+          18,
+        ],
+
+        [
+          "R23EM091",
+          "RAHUL",
+          "4",
+          "A",
+          12,
+          8,
+          14,
+          "",
         ],
       ]);
 
@@ -521,15 +500,74 @@ export function ExcelUpload({
 
   return (
     <div>
+
+      {/* UPLOAD TYPE */}
+
+      <div
+        className="card"
+        style={{
+          marginBottom: 20,
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 700,
+            marginBottom: 12,
+          }}
+        >
+          Select Upload Type
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+          }}
+        >
+          <button
+            className={
+              uploadType ===
+                "IA-I"
+                ? "btn btn-primary"
+                : "btn btn-secondary"
+            }
+            onClick={() =>
+              setUploadType(
+                "IA-I"
+              )
+            }
+          >
+            Upload IA-1
+          </button>
+
+          <button
+            className={
+              uploadType ===
+                "IA-II"
+                ? "btn btn-primary"
+                : "btn btn-secondary"
+            }
+            onClick={() =>
+              setUploadType(
+                "IA-II"
+              )
+            }
+          >
+            Upload IA-2
+          </button>
+        </div>
+      </div>
+
       {/* INFO */}
+
       <div className="info-box">
         <div
           style={{
             fontWeight: 700,
-            marginBottom: 8,
+            marginBottom: 10,
           }}
         >
-          📘 Required Excel Structure
+          📘 Excel Structure
         </div>
 
         <div
@@ -538,28 +576,34 @@ export function ExcelUpload({
             lineHeight: 1.8,
           }}
         >
-          Required Columns:
+          Required columns:
           <br />
 
           <code>SRN</code>{" "}
           <code>Student Name</code>{" "}
           <code>Semester</code>{" "}
-          <code>Section</code>{" "}
-          <code>Course Code</code>{" "}
-          <code>Course Name</code>{" "}
-          <code>Course Type</code>{" "}
-          <code>IA-I</code>{" "}
-          <code>IA-II</code>{" "}
-          <code>IA-I Date</code>{" "}
-          <code>IA-II Date</code>
+          <code>Section</code>
+
           <br />
-          Each student should have {MIN_SEMESTER_COURSES}-{MAX_SEMESTER_COURSES}
-          selected courses. IA dates are optional, but when provided they should be
-          about {IA_GAP_MONTHS} months apart.
+          Remaining columns are treated as course codes automatically.
+
+          <br />
+          Example:
+          <br />
+
+          <code>EE401</code>{" "}
+          <code>EE402</code>{" "}
+          <code>EE451</code>
+
+          <br />
+
+          Use "absent" for absent students.
         </div>
 
         <div
-          style={{ marginTop: 12 }}
+          style={{
+            marginTop: 14,
+          }}
         >
           <button
             className="btn btn-secondary btn-sm"
@@ -573,6 +617,7 @@ export function ExcelUpload({
       </div>
 
       {/* DROP ZONE */}
+
       <div
         className={`drop-zone ${dragging
             ? "drag-active"
@@ -580,6 +625,7 @@ export function ExcelUpload({
           }`}
         onDragOver={e => {
           e.preventDefault();
+
           setDragging(true);
         }}
         onDragLeave={() =>
@@ -587,10 +633,12 @@ export function ExcelUpload({
         }
         onDrop={e => {
           e.preventDefault();
+
           setDragging(false);
 
           processFile(
-            e.dataTransfer.files[0]
+            e.dataTransfer
+              .files[0]
           );
         }}
         onClick={() =>
@@ -599,7 +647,7 @@ export function ExcelUpload({
       >
         <div
           style={{
-            fontSize: 44,
+            fontSize: 46,
             marginBottom: 12,
           }}
         >
@@ -608,11 +656,11 @@ export function ExcelUpload({
 
         <div
           style={{
+            fontSize: 20,
             fontWeight: 700,
-            fontSize: 18,
           }}
         >
-          Upload Academic Excel
+          Upload {uploadType} Excel
         </div>
 
         <div
@@ -641,6 +689,7 @@ export function ExcelUpload({
       </div>
 
       {/* STATUS */}
+
       {status && (
         <div
           style={{
@@ -650,6 +699,7 @@ export function ExcelUpload({
               "#ecfeff",
             border:
               "1px solid #67e8f9",
+            marginTop: 16,
             marginBottom: 16,
             fontWeight: 600,
           }}
@@ -659,6 +709,7 @@ export function ExcelUpload({
       )}
 
       {/* SUMMARY */}
+
       {summary && (
         <div className="card">
           <div
@@ -679,65 +730,83 @@ export function ExcelUpload({
             }}
           >
             <div className="metric-card">
-              <div>Total Students</div>
+              <div>
+                Students
+              </div>
 
               <h2>
-                {summary.students}
+                {
+                  summary.students
+                }
               </h2>
             </div>
 
             <div className="metric-card">
-              <div>Course Entries</div>
+              <div>
+                Courses
+              </div>
 
               <h2>
-                {summary.courses}
+                {
+                  summary.courses
+                }
               </h2>
             </div>
 
             <div className="metric-card">
-              <div>At Risk Entries</div>
+              <div>
+                At Risk
+              </div>
 
               <h2>
-                {summary.atRisk}
+                {
+                  summary.atRisk
+                }
               </h2>
             </div>
           </div>
         </div>
       )}
 
-      {/* VALIDATION ERRORS */}
+      {/* ERRORS */}
+
       {errors.length > 0 && (
         <div
           className="warn-box"
           style={{
-            marginTop: 18,
+            marginTop: 20,
           }}
         >
           <div
             style={{
               fontWeight: 700,
-              marginBottom: 10,
+              marginBottom: 12,
             }}
           >
             ⚠ Validation Errors
           </div>
 
-          {errors.map((e, i) => (
-            <div
-              key={i}
-              style={{
-                fontSize: 13,
-                marginBottom: 6,
-              }}
-            >
-              Row {e.row}:{" "}
-              {e.errors.join(", ")}
-            </div>
-          ))}
+          {errors.map(
+            (e, i) => (
+              <div
+                key={i}
+                style={{
+                  marginBottom: 8,
+                  fontSize: 13,
+                }}
+              >
+                Row {e.row}:{" "}
+                {e.errors.join(
+                  ", "
+                )}
+              </div>
+            )
+          )}
         </div>
       )}
 
       {/* PREVIEW */}
+
       {preview.length > 0 && (
         <div
           className="card"
@@ -750,12 +819,15 @@ export function ExcelUpload({
               display: "flex",
               justifyContent:
                 "space-between",
-              alignItems: "center",
-              marginBottom: 16,
+
+              alignItems:
+                "center",
+
+              marginBottom: 18,
             }}
           >
             <div className="card-title">
-              📄 Excel Preview
+              📄 Preview
             </div>
 
             <button
@@ -774,99 +846,121 @@ export function ExcelUpload({
                   <th>Name</th>
                   <th>Sem</th>
                   <th>Sec</th>
-                  <th>Course</th>
-                  <th>Type</th>
-                  <th>IA-I</th>
-                  <th>IA-II</th>
-                  <th>Status</th>
+                  <th>
+                    Courses
+                  </th>
                 </tr>
               </thead>
 
               <tbody>
-                {preview
-                  .slice(0, 15)
-                  .map((row, i) => {
-                    const risk =
-                      row.iaI < IA_THRESHOLD ||
-                      row.iaII < IA_THRESHOLD;
+                {preview.map(
+                  (
+                    student,
+                    i
+                  ) => (
+                    <tr key={i}>
+                      <td>
+                        {
+                          student.SRN
+                        }
+                      </td>
 
-                    return (
-                      <tr
-                        key={i}
-                        style={{
-                          background:
-                            risk
-                              ? "#fffbeb"
-                              : "transparent",
-                        }}
-                      >
-                        <td>
-                          {row.SRN}
-                        </td>
+                      <td>
+                        {
+                          student.studentName
+                        }
+                      </td>
 
-                        <td>
-                          {
-                            row.studentName
-                          }
-                        </td>
+                      <td>
+                        {
+                          student.semester
+                        }
+                      </td>
 
-                        <td>
-                          {
-                            row.semester
-                          }
-                        </td>
+                      <td>
+                        {
+                          student.section
+                        }
+                      </td>
 
-                        <td>
-                          {
-                            row.section
-                          }
-                        </td>
+                      <td>
+                        <div
+                          style={{
+                            display:
+                              "flex",
 
-                        <td>
-                          {
-                            row.courseCode
-                          }
-                        </td>
+                            flexWrap:
+                              "wrap",
 
-                        <td>
-                          {
-                            row.courseType
-                          }
-                        </td>
+                            gap: 8,
+                          }}
+                        >
+                          {student.courses.map(
+                            (
+                              course,
+                              idx
+                            ) => {
+                              const marks =
+                                uploadType ===
+                                  "IA-I"
+                                  ? course.iaI
+                                  : course.iaII;
 
-                        <td>
-                          {row.iaI}
-                        </td>
+                              const absent =
+                                uploadType ===
+                                  "IA-I"
+                                  ? course.iaIAbsent
+                                  : course.iaIIAbsent;
 
-                        <td>
-                          {row.iaII}
-                        </td>
+                              const risk =
+                                marks !==
+                                null &&
+                                marks <
+                                IA_THRESHOLD;
 
-                        <td>
-                          {risk
-                            ? "⚠ At Risk"
-                            : "✅ Safe"}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                              return (
+                                <div
+                                  key={
+                                    idx
+                                  }
+                                  style={{
+                                    padding:
+                                      "6px 10px",
+
+                                    borderRadius: 8,
+
+                                    fontSize: 12,
+
+                                    fontWeight: 600,
+
+                                    background:
+                                      absent
+                                        ? "#fee2e2"
+                                        : risk
+                                          ? "#fef3c7"
+                                          : "#dcfce7",
+                                  }}
+                                >
+                                  {
+                                    course.courseCode
+                                  }
+
+                                  {" : "}
+
+                                  {absent
+                                    ? "ABSENT"
+                                    : marks}
+                                </div>
+                              );
+                            }
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
-
-            {preview.length >
-              15 && (
-                <div
-                  style={{
-                    padding: 12,
-                    textAlign:
-                      "center",
-                    fontSize: 13,
-                  }}
-                >
-                  Showing first 15
-                  rows
-                </div>
-              )}
           </div>
         </div>
       )}
