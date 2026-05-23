@@ -256,3 +256,28 @@
   height: 100%;
   object-fit: cover;
 }
+
+.student-card:hover {
+  transform: translateY(-2px);
+}
+
+.info-box {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.info-label {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+

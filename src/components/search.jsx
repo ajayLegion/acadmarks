@@ -1,72 +1,46 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { IA_THRESHOLD } from "../utils/constants";
 import {
     getCourseLoadStatus,
     getStudentCourses,
     isStudentAtRisk,
-    uid,
 } from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
-export function Search({ data, update, notify, selClass, classes }) {
-    const blank = {
-        name: "",
-        SRN: "",
-        department: "",
-        semester: "",
-        classSection: "",
-    };
-
-    const [form, setForm] = useState(blank);
+export function Search({ data, update, notify }) {
     const [search, setSearch] = useState("");
-    const [editing, setEditing] = useState(null);
 
-    const submit = () => {
-        if (!form.name.trim() || !form.SRN.trim()) {
-            return notify("Name and SRN required", "error");
-        }
+    const normalizedSearch = search.trim().toLowerCase();
 
-        update(d => {
-            const duplicate = d.students.some(
-                s =>
-                    s.SRN?.toUpperCase() === form.SRN.trim().toUpperCase() &&
-                    s.id !== editing
-            );
+    // Single-student focused search
+    const filtered = useMemo(() => {
+        if (normalizedSearch.length < 2) return [];
 
-            if (duplicate) {
-                notify("SRN already exists", "error");
-                return d;
-            }
+        // Exact SRN match
+        const exactSRN = data.students.find(
+            s => s.SRN?.toLowerCase() === normalizedSearch
+        );
 
-            const student = {
-                ...form,
-                name: form.name.trim(),
-                SRN: form.SRN.trim().toUpperCase(),
-            };
+        if (exactSRN) return [exactSRN];
 
-            if (editing) {
-                d.students = d.students.map(s =>
-                    s.id === editing
-                        ? { ...s, ...student, courses: s.courses || [] }
-                        : s
-                );
-                notify("Student updated");
-            } else {
-                d.students.push({
-                    id: uid(),
-                    ...student,
-                    courses: [],
-                    riskLevel: "SAFE",
-                });
-                notify("Student added");
-            }
+        // Exact name match
+        const exactName = data.students.find(
+            s => s.name?.toLowerCase() === normalizedSearch
+        );
 
-            return d;
-        });
+        if (exactName) return [exactName];
 
-        setForm(blank);
-        setEditing(null);
-    };
+        // Partial match fallback
+        const partial = data.students.find(
+            s =>
+                s.name?.toLowerCase().includes(normalizedSearch) ||
+                s.SRN?.toLowerCase().includes(normalizedSearch)
+        );
+
+        return partial ? [partial] : [];
+    }, [normalizedSearch, data.students]);
+
+    const atRiskList = filtered.filter(isStudentAtRisk);
 
     const del = id => {
         update(d => {
@@ -78,264 +52,409 @@ export function Search({ data, update, notify, selClass, classes }) {
     };
 
     const edit = student => {
-        setForm({
-            name: student.name || "",
-            SRN: student.SRN || "",
-            department: student.department || "",
-            semester: student.semester || "",
-            classSection: student.classSection || "",
-        });
-
-        setEditing(student.id);
+        console.log("Edit student:", student);
     };
 
-    const filtered = data.students.filter(
-        s =>
-            s.name.toLowerCase().includes(search.toLowerCase()) ||
-            s.SRN.toLowerCase().includes(search.toLowerCase())
-    );
-
-    const atRiskList = filtered.filter(isStudentAtRisk);
-
     return (
-        <div>
-            <div className="two-col">
-                <div className="card" style={{ position: "sticky", top: 80 }}>
-                    <div className="card-title">
-                        {editing ? "Edit Student" : "Add Student"}
-                    </div>
+        <div className="card">
+    
+            {/* Header */}
+            <div
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 24,
+                    textAlign: "center",
+                }}
+            >
+                <div
+                    className="card-title"
+                    style={{
+                        marginBottom: 14,
+                    }}
+                >
+                    Student Search
 
-                    <label className="form-label">
-                        Class Section
-                        <select
-                            className="form-input"
-                            value={form.classSection}
-                            onChange={e =>
-                                setForm({ ...form, classSection: e.target.value })
-                            }
-                        >
-                            <option value="">Select class</option>
-
-                            {classes.map(c => (
-                                <option key={c} value={c}>
-                                    {c}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    {[
-                        ["name", "Full Name"],
-                        ["SRN", "SRN"],
-                        ["department", "Department"],
-                        ["semester", "Semester"],
-                    ].map(([key, label]) => (
-                        <label key={key} className="form-label">
-                            {label}
-
-                            <input
-                                className="form-input"
-                                value={form[key]}
-                                onChange={e =>
-                                    setForm({ ...form, [key]: e.target.value })
-                                }
-                                placeholder={label}
-                            />
-                        </label>
-                    ))}
-
-                    <button
-                        className="btn btn-primary"
-                        style={{ width: "100%" }}
-                        onClick={submit}
-                    >
-                        {editing ? "Update Student" : "Add Student"}
-                    </button>
-
-                    {editing && (
-                        <button
-                            className="btn btn-secondary"
-                            style={{ width: "100%", marginTop: 8 }}
-                            onClick={() => {
-                                setEditing(null);
-                                setForm(blank);
+                    {filtered.length > 0 && (
+                        <span
+                            style={{
+                                marginLeft: 10,
+                                fontSize: 13,
+                                color: "var(--text-2)",
+                                fontWeight: 500,
                             }}
                         >
-                            Cancel
-                        </button>
+                            (1 Student Found)
+                        </span>
                     )}
                 </div>
 
-                <div className="card">
-                    <div
-                        style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 14,
-                            gap: 12,
-                            flexWrap: "wrap",
-                        }}
-                    >
-                        <div className="card-title" style={{ marginBottom: 0 }}>
-                            Students
+                <input
+                    className="form-input"
+                    style={{
+                        width: "100%",
+                        maxWidth: 420,
+                        marginBottom: 0,
+                        textAlign: "center",
+                        fontSize: 16,
+                        padding: "14px 18px",
+                        borderRadius: 14,
+                    }}
+                    placeholder="Search by Name or SRN"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                />
+            </div>
+            
 
-                            <span
+            {/* Minimum chars */}
+            {normalizedSearch.length > 0 &&
+                normalizedSearch.length < 2 && (
+                    <EmptyState msg="Type at least 2 characters" />
+                )}
+
+        
+
+            {/* Student Card */}
+            {filtered.length > 0 ? (
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 16,
+                    }}
+                >
+                    {filtered.map(student => {
+                        const courses = getStudentCourses(student);
+
+                        const lowIA = courses.filter(
+                            c =>
+                                Number(c.iaI) < IA_THRESHOLD ||
+                                Number(c.iaII) < IA_THRESHOLD
+                        ).length;
+
+                        const load = getCourseLoadStatus(student);
+
+                        const risk = lowIA > 0 || !load.ok;
+
+                        return (
+                            <div
+                                key={student.id}
+                                className="student-card"
                                 style={{
-                                    marginLeft: 8,
-                                    fontSize: 12,
-                                    color: "var(--text-2)",
-                                    fontWeight: 400,
+                                    border: risk
+                                        ? "1px solid #fca5a5"
+                                        : "1px solid var(--border)",
+                                    borderRadius: 20,
+                                    padding: 22,
+                                    background: risk
+                                        ? "#fff7ed"
+                                        : "var(--card-bg)",
+                                    boxShadow:
+                                        "0 6px 18px rgba(0,0,0,0.06)",
+                                    transition: "0.25s ease",
                                 }}
                             >
-                                ({filtered.length})
-                            </span>
-                        </div>
+                                {/* Top */}
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "flex-start",
+                                        gap: 16,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    <div>
+                                        <div
+                                            style={{
+                                                fontSize: 24,
+                                                fontWeight: 800,
+                                                color: "var(--text-h)",
+                                                marginBottom: 6,
+                                            }}
+                                        >
+                                            {student.name}
+                                        </div>
 
-                        <input
-                            className="form-input"
-                            style={{ width: 220, marginBottom: 0 }}
-                            placeholder="Search by Name or SRN"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                        />
-                    </div>
+                                        <div
+                                            style={{
+                                                color: "var(--text-2)",
+                                                fontSize: 14,
+                                                fontWeight: 500,
+                                            }}
+                                        >
+                                            {student.SRN}
+                                        </div>
+                                    </div>
 
-                    {atRiskList.length > 0 && (
-                        <div className="warn-box" style={{ marginBottom: 14 }}>
-                            <b>{atRiskList.length} student(s) have at-risk IA marks</b>
-                        </div>
-                    )}
+                                    <span
+                                        className={
+                                            risk
+                                                ? "chip chip-risk"
+                                                : "chip chip-pass"
+                                        }
+                                    >
+                                        {risk ? "AT RISK" : "SAFE"}
+                                    </span>
+                                </div>
 
-                    {filtered.length ? (
-                        <div className="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        {[
-                                            "Class",
-                                            "SRN",
-                                            "Name",
-                                            "Dept",
-                                            "Sem",
-                                            "Courses",
-                                            "Low IA",
-                                            "Load",
-                                            "Actions",
-                                        ].map(h => (
-                                            <th key={h}>{h}</th>
-                                        ))}
-                                    </tr>
-                                </thead>
+                                {/* Info Grid */}
+                                <div
+                                    style={{
+                                        marginTop: 20,
+                                        display: "grid",
+                                        gridTemplateColumns:
+                                            "repeat(auto-fit,minmax(160px,1fr))",
+                                        gap: 14,
+                                    }}
+                                >
+                                    <div className="info-box">
+                                        <div className="info-label">
+                                            Department
+                                        </div>
 
-                                <tbody>
-                                    {filtered.map(student => {
-                                        const courses = getStudentCourses(student);
+                                        <div className="info-value">
+                                            {student.department || "-"}
+                                        </div>
+                                    </div>
 
-                                        const lowIA = courses.filter(
-                                            c =>
-                                                c.iaI < IA_THRESHOLD ||
-                                                c.iaII < IA_THRESHOLD
-                                        ).length;
+                                    <div className="info-box">
+                                        <div className="info-label">
+                                            Semester
+                                        </div>
 
-                                        const load = getCourseLoadStatus(student);
+                                        <div className="info-value">
+                                            {student.semester || "-"}
+                                        </div>
+                                    </div>
 
-                                        const risk = lowIA > 0 || !load.ok;
+                                    <div className="info-box">
+                                        <div className="info-label">
+                                            Class
+                                        </div>
 
-                                        return (
-                                            <tr
-                                                key={student.id}
-                                                style={{
-                                                    background: risk
-                                                        ? "#fffbeb"
-                                                        : "transparent",
-                                                }}
+                                        <div className="info-value">
+                                            {student.classSection || "-"}
+                                        </div>
+                                    </div>
+
+                                    <div className="info-box">
+                                        <div className="info-label">
+                                            Courses
+                                        </div>
+
+                                        <div className="info-value">
+                                            {courses.length}
+                                        </div>
+                                    </div>
+
+                                    <div className="info-box">
+                                        <div className="info-label">
+                                            Low IA Subjects
+                                        </div>
+
+                                        <div
+                                            className="info-value"
+                                            style={{
+                                                color:
+                                                    lowIA > 0
+                                                        ? "#ef4444"
+                                                        : "#22c55e",
+                                            }}
+                                        >
+                                            {lowIA}
+                                        </div>
+                                    </div>
+
+                                    <div className="info-box">
+                                        <div className="info-label">
+                                            Course Load
+                                        </div>
+
+                                        <div className="info-value">
+                                            <span
+                                                className={
+                                                    load.ok
+                                                        ? "chip chip-pass"
+                                                        : "chip chip-risk"
+                                                }
                                             >
-                                                <td>{student.classSection || "-"}</td>
+                                                {load.label}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                                <td>
-                                                    <code>{student.SRN}</code>
-                                                </td>
+                                {/* Course List */}
+                                <div
+                                    style={{
+                                        marginTop: 24,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            fontWeight: 700,
+                                            marginBottom: 12,
+                                            fontSize: 16,
+                                        }}
+                                    >
+                                        Courses
+                                    </div>
 
-                                                <td
-                                                    style={{
-                                                        fontWeight: 600,
-                                                        color: "var(--text-h)",
-                                                    }}
-                                                >
-                                                    {student.name}
-                                                </td>
+                                    <div
+                                        style={{
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: 10,
+                                        }}
+                                    >
+                                        {courses.length > 0 ? (
+                                            courses.map(course => {
+                                                const danger =
+                                                    Number(course.iaI) <
+                                                        IA_THRESHOLD ||
+                                                    Number(course.iaII) <
+                                                        IA_THRESHOLD;
 
-                                                <td>{student.department || "-"}</td>
-
-                                                <td>{student.semester || "-"}</td>
-
-                                                <td style={{ fontWeight: 800 }}>
-                                                    {courses.length}
-                                                </td>
-
-                                                <td
-                                                    style={{
-                                                        fontWeight: 800,
-                                                        color: lowIA
-                                                            ? "#ef4444"
-                                                            : "#22c55e",
-                                                    }}
-                                                >
-                                                    {lowIA}
-                                                </td>
-
-                                                <td>
-                                                    <span
-                                                        className={
-                                                            load.ok
-                                                                ? "chip chip-pass"
-                                                                : "chip chip-risk"
-                                                        }
-                                                    >
-                                                        {load.label}
-                                                    </span>
-                                                </td>
-
-                                                <td>
+                                                return (
                                                     <div
+                                                        key={course.id}
                                                         style={{
-                                                            display: "flex",
-                                                            gap: 5,
+                                                            border:
+                                                                "1px solid var(--border)",
+                                                            borderRadius: 14,
+                                                            padding: 14,
+                                                            background: danger
+                                                                ? "#fef2f2"
+                                                                : "#fafafa",
                                                         }}
                                                     >
-                                                        <button
-                                                            className="btn btn-secondary btn-sm"
-                                                            onClick={() => edit(student)}
+                                                        <div
+                                                            style={{
+                                                                display: "flex",
+                                                                justifyContent:
+                                                                    "space-between",
+                                                                alignItems:
+                                                                    "center",
+                                                                gap: 10,
+                                                                flexWrap:
+                                                                    "wrap",
+                                                            }}
                                                         >
-                                                            Edit
-                                                        </button>
+                                                            <div>
+                                                                <div
+                                                                    style={{
+                                                                        fontWeight: 700,
+                                                                    }}
+                                                                >
+                                                                    {course.courseName ||
+                                                                        "Unnamed Course"}
+                                                                </div>
 
-                                                        <button
-                                                            className="btn btn-danger btn-sm"
-                                                            onClick={() => del(student.id)}
+                                                                <div
+                                                                    style={{
+                                                                        fontSize: 13,
+                                                                        color: "var(--text-2)",
+                                                                        marginTop: 4,
+                                                                    }}
+                                                                >
+                                                                    {
+                                                                        course.courseCode
+                                                                    }
+                                                                </div>
+                                                            </div>
+
+                                                            <span
+                                                                className={
+                                                                    danger
+                                                                        ? "chip chip-risk"
+                                                                        : "chip chip-pass"
+                                                                }
+                                                            >
+                                                                {danger
+                                                                    ? "LOW IA"
+                                                                    : "GOOD"}
+                                                            </span>
+                                                        </div>
+
+                                                        <div
+                                                            style={{
+                                                                display: "flex",
+                                                                gap: 16,
+                                                                marginTop: 14,
+                                                                flexWrap: "wrap",
+                                                            }}
                                                         >
-                                                            Delete
-                                                        </button>
+                                                            <div>
+                                                                <b>IA-I:</b>{" "}
+                                                                {course.iaI ??
+                                                                    "-"}
+                                                            </div>
+
+                                                            <div>
+                                                                <b>IA-II:</b>{" "}
+                                                                {course.iaII ??
+                                                                    "-"}
+                                                            </div>
+
+                                                            <div>
+                                                                <b>Avg:</b>{" "}
+                                                                {(
+                                                                    (Number(
+                                                                        course.iaI
+                                                                    ) || 0) +
+                                                                    (Number(
+                                                                        course.iaII
+                                                                    ) || 0)
+                                                                ) / 2}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : (
-                        <EmptyState
-                            msg={
-                                search
-                                    ? "No students match your search"
-                                    : "No students found"
-                            }
-                        />
-                    )}
+                                                );
+                                            })
+                                        ) : (
+                                            <EmptyState msg="No courses assigned" />
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div
+                                    style={{
+                                        marginTop: 22,
+                                        display: "flex",
+                                        gap: 10,
+                                        flexWrap: "wrap",
+                                    }}
+                                >
+                                    <button
+                                        className="btn btn-secondary"
+                                        onClick={() => edit(student)}
+                                    >
+                                        Edit Student
+                                    </button>
+
+                                    <button
+                                        className="btn btn-danger"
+                                        onClick={() => del(student.id)}
+                                    >
+                                        Delete Student
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
-            </div>
+            ) : (
+                normalizedSearch.length >= 2 && (
+                    <EmptyState msg="No matching student found" />
+                )
+            )}
+
+            
         </div>
     );
 }
