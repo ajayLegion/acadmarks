@@ -9,6 +9,19 @@ export function isAtRisk(iaI, iaII) {
   return iaI < IA_THRESHOLD || iaII < IA_THRESHOLD;
 }
 
+export function isAtRiskForIA(course, field) {
+  const absentField = field === "iaI" ? "iaIAbsent" : "iaIIAbsent";
+  const mark = course?.[field];
+
+  return (
+    !course?.[absentField] &&
+    mark !== null &&
+    mark !== undefined &&
+    mark !== "" &&
+    Number(mark) < IA_THRESHOLD
+  );
+}
+
 export function load() {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY));
@@ -33,6 +46,8 @@ export function normalizeCourseEntry(course = {}) {
     courseType: course.courseType || course.type || "Core",
     iaI: Number(course.iaI ?? course.marks ?? 0),
     iaII: Number(course.iaII ?? 0),
+    iaIAbsent: Boolean(course.iaIAbsent),
+    iaIIAbsent: Boolean(course.iaIIAbsent),
     iaIDate: course.iaIDate || "",
     iaIIDate: course.iaIIDate || "",
   };
@@ -73,6 +88,11 @@ export function normalizeData(data = {}) {
 export function isStudentAtRisk(student) {
   const courses = getStudentCourses(student);
   return courses.some(course => isAtRisk(course.iaI, course.iaII));
+}
+
+export function isStudentAtRiskForIA(student, field) {
+  const courses = getStudentCourses(student);
+  return courses.some(course => isAtRiskForIA(course, field));
 }
 
 export function getCourseLoadStatus(student) {

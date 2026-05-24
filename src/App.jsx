@@ -36,9 +36,14 @@ export default function App() {
 
   const classes = CLASS_MAP[semType];
 
+  // ── Toast ────────────────────────────────────────────────────────
+  const notify = useCallback((msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3200);
+  }, []);
+
   // ── Bootstrap: load from Firestore on mount ──────────────────────
   useEffect(() => {
-    setSyncState("loading");
     loadFromFirestore()
       .then(remote => {
         setData(normalizeData(remote));
@@ -48,7 +53,7 @@ export default function App() {
         setSyncState("error");
         notify("Could not load data from Firestore", "error");
       });
-  }, []);
+  }, [notify]);
 
   // ── Debounced save helper ────────────────────────────────────────
   const scheduleSave = useCallback((nextData) => {
@@ -65,7 +70,7 @@ export default function App() {
         notify("Auto-save failed — check your connection", "error");
       }
     }, SAVE_DELAY);
-  }, []);
+  }, [notify]);
 
   // ── Updater (same API as before, but now also saves to Firestore) ─
   const update = useCallback(fn => {
@@ -75,12 +80,6 @@ export default function App() {
       return next;
     });
   }, [scheduleSave]);
-
-  // ── Toast ────────────────────────────────────────────────────────
-  const notify = (msg, type = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3200);
-  };
 
   const changeSem = t => { setSemType(t); setSelClass("all"); };
 
@@ -133,10 +132,7 @@ export default function App() {
 
         {/* Odd / Even toggle */}
         <div style={{ padding: "10px 14px 4px" }}>
-          <div style={{
-            fontSize: 10, color: "#3d4270", fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6,
-          }}>
+          <div className="side-section-label">
             Semester Type
           </div>
           <div className="sem-toggle">
@@ -154,37 +150,24 @@ export default function App() {
 
         {/* Class selector */}
         <div style={{ padding: "8px 14px 4px" }}>
-          <div style={{
-            fontSize: 10, color: "#3d4270", fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6,
-          }}>
+          <div className="side-section-label">
             Class Section
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
+          <div className="class-grid">
             <button
+              className={`class-filter ${selClass === "all" ? "active" : ""}`}
               onClick={() => setSelClass("all")}
-              style={{
-                gridColumn: "span 2",
-                padding: "6px 0", borderRadius: 7, border: "none", cursor: "pointer",
-                fontFamily: "var(--sans)", fontSize: 12, fontWeight: 600,
-                background: selClass === "all"
-                  ? "linear-gradient(135deg,#5b5ef4,#818cf8)"
-                  : "rgba(255,255,255,0.05)",
-                color: selClass === "all" ? "#fff" : "#6b71a3",
-                transition: "all 0.15s",
-              }}>
+            >
               All Classes
             </button>
             {classes.map(cls => (
-              <button key={cls} onClick={() => setSelClass(cls)} style={{
-                padding: "6px 0", borderRadius: 7, border: "none", cursor: "pointer",
-                fontFamily: "var(--sans)", fontSize: 12, fontWeight: 700,
-                background: selClass === cls
-                  ? "linear-gradient(135deg,#5b5ef4,#818cf8)"
-                  : "rgba(255,255,255,0.05)",
-                color: selClass === cls ? "#fff" : "#6b71a3",
-                transition: "all 0.15s",
-              }}>{cls}</button>
+              <button
+                key={cls}
+                className={`class-filter ${selClass === cls ? "active" : ""}`}
+                onClick={() => setSelClass(cls)}
+              >
+                {cls}
+              </button>
             ))}
           </div>
         </div>
@@ -224,7 +207,6 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button
               className="menu-toggle"
-              style={{ color: "black" }}
               onClick={() => setMenuOpen(!menuOpen)}
             >
               {menuOpen ? "✖" : "☰"}

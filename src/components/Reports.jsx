@@ -1,10 +1,12 @@
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { IA_MAX, IA_THRESHOLD } from "../utils/constants";
+import { IA_THRESHOLD } from "../utils/constants";
 import {
   average,
   flattenCourseRows,
-  isStudentAtRisk,
+  getStudentCourses,
+  isAtRiskForIA,
+  isStudentAtRiskForIA,
 } from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
@@ -33,6 +35,51 @@ function Stat({
   );
 }
 
+function hasIAData(student, field) {
+  const absentField =
+    field === "iaI"
+      ? "iaIAbsent"
+      : "iaIIAbsent";
+
+  return getStudentCourses(student).some(course => {
+    const mark = course[field];
+
+    return (
+      !course[absentField] &&
+      mark !== null &&
+      mark !== undefined &&
+      mark !== ""
+    );
+  });
+}
+
+function getIAClassSummary(students, field) {
+  const assessed =
+    students.filter(student =>
+      hasIAData(student, field)
+    );
+
+  const risk =
+    assessed.filter(student =>
+      isStudentAtRiskForIA(student, field)
+    );
+
+  const passing =
+    assessed.length - risk.length;
+
+  const passRate =
+    assessed.length
+      ? Math.round((passing / assessed.length) * 100)
+      : 0;
+
+  return {
+    assessed: assessed.length,
+    passing,
+    passRate,
+    risk,
+  };
+}
+
 /* ───────────────────────────────────────────── */
 /* IA STATS */
 /* ───────────────────────────────────────────── */
@@ -48,7 +95,7 @@ function IAStats({
     student => {
 
       const validCourses =
-        student.courses.filter(c => {
+        getStudentCourses(student).filter(c => {
 
           const mark =
             field === "iaI"
@@ -74,10 +121,11 @@ function IAStats({
             : c.iaII
         );
 
+      if (!marks.length)
+        return null;
+
       const avg =
-        marks.length
-          ? average(marks)
-          : 0;
+        average(marks);
 
       const failed =
         marks.some(
@@ -89,7 +137,7 @@ function IAStats({
         failed,
       };
     }
-  );
+  ).filter(Boolean);
 
   const averages =
     studentStats.map(s => s.avg);
@@ -208,24 +256,11 @@ function ClassReport({
       students
     );
 
-  const atRisk =
-    students.filter(
-      isStudentAtRisk
-    );
+  const iaISummary =
+    getIAClassSummary(students, "iaI");
 
-  const passing =
-    students.filter(
-      s => !isStudentAtRisk(s)
-    );
-
-  const passRate =
-    students.length
-      ? Math.round(
-        (passing.length /
-          students.length) *
-        100
-      )
-      : 0;
+  const iaIISummary =
+    getIAClassSummary(students, "iaII");
 
   return (
     <div
@@ -291,14 +326,24 @@ function ClassReport({
             }}
           >
             {students.length} students ·{" "}
-            {passRate}% passing
+            IA-1 {iaISummary.passing}/{iaISummary.assessed} passing ({iaISummary.passRate}%) ·{" "}
+            IA-2 {iaIISummary.passing}/{iaIISummary.assessed} passing ({iaIISummary.passRate}%)
           </span>
 
-          {atRisk.length >
+          {iaISummary.risk.length >
             0 && (
               <span className="chip chip-risk">
-                ⚠️{" "}
-                {atRisk.length}{" "}
+                ⚠️ IA-1{" "}
+                {iaISummary.risk.length}{" "}
+                at risk
+              </span>
+            )}
+
+          {iaIISummary.risk.length >
+            0 && (
+              <span className="chip chip-risk">
+                ⚠️ IA-2{" "}
+                {iaIISummary.risk.length}{" "}
                 at risk
               </span>
             )}
@@ -410,9 +455,9 @@ function ClassReport({
                 <th>Name</th>
                 <th>Course</th>
                 <th>IA-I</th>
+                <th>IA-I Status</th>
                 <th>IA-II</th>
-                <th>Total</th>
-                <th>Status</th>
+                <th>IA-II Status</th>
               </tr>
             </thead>
 
@@ -425,28 +470,18 @@ function ClassReport({
                   const iaII =
                     row.iaII;
 
-                  const total =
-                    (iaI || 0) +
-                    (iaII || 0);
+                  const iaIRisk =
+                    isAtRiskForIA(row, "iaI");
 
-                  const risk =
-                    (!row.iaIAbsent &&
-                      iaI !==
-                      null &&
-                      iaI <
-                      IA_THRESHOLD) ||
-                    (!row.iaIIAbsent &&
-                      iaII !==
-                      null &&
-                      iaII <
-                      IA_THRESHOLD);
+                  const iaIIRisk =
+                    isAtRiskForIA(row, "iaII");
 
                   return (
                     <tr
                       key={`${row.student.id}-${row.courseCode}`}
                       style={{
                         background:
-                          risk
+                          iaIRisk || iaIIRisk
                             ? "#fffbeb"
                             : "transparent",
                       }}
@@ -457,7 +492,7 @@ function ClassReport({
                             fontSize: 12,
 
                             background:
-                              risk
+                              iaIRisk || iaIIRisk
                                 ? "#fef3c7"
                                 : "var(--bg-2)",
 
@@ -498,7 +533,7 @@ function ClassReport({
                           fontWeight: 700,
 
                           color:
-                            risk
+                            iaIRisk
                               ? "#ef4444"
                               : "var(--text-h)",
                         }}
@@ -508,12 +543,30 @@ function ClassReport({
                           : iaI}
                       </td>
 
+                      <td>
+                        <span
+                          className={
+                            row.iaIAbsent
+                              ? "chip chip-risk"
+                              : iaIRisk
+                                ? "chip chip-risk"
+                                : "chip chip-pass"
+                          }
+                        >
+                          {row.iaIAbsent
+                            ? "Absent"
+                            : iaIRisk
+                              ? "⚠️ At Risk"
+                              : "✓ Pass"}
+                        </span>
+                      </td>
+
                       <td
                         style={{
                           fontWeight: 700,
 
                           color:
-                            risk
+                            iaIIRisk
                               ? "#ef4444"
                               : "var(--text-h)",
                         }}
@@ -523,27 +576,19 @@ function ClassReport({
                           : iaII}
                       </td>
 
-                      <td
-                        style={{
-                          fontWeight: 800,
-
-                          color:
-                            "#5b5ef4",
-                        }}
-                      >
-                        {total}/
-                        {IA_MAX * 2}
-                      </td>
-
                       <td>
                         <span
                           className={
-                            risk
+                            row.iaIIAbsent
+                              ? "chip chip-risk"
+                              : iaIIRisk
                               ? "chip chip-risk"
                               : "chip chip-pass"
                           }
                         >
-                          {risk
+                          {row.iaIIAbsent
+                            ? "Absent"
+                            : iaIIRisk
                             ? "⚠️ At Risk"
                             : "✓ Pass"}
                         </span>
@@ -601,7 +646,32 @@ export function Reports({
         students
       );
 
-    let rows = [];
+    const iaValue = (row, field) => {
+      const absentField =
+        field === "iaI"
+          ? "iaIAbsent"
+          : "iaIIAbsent";
+
+      return row[absentField]
+        ? "ABSENT"
+        : row[field];
+    };
+
+    const iaStatus = (row, field) => {
+      const absentField =
+        field === "iaI"
+          ? "iaIAbsent"
+          : "iaIIAbsent";
+
+      if (row[absentField])
+        return "Absent";
+
+      return isAtRiskForIA(row, field)
+        ? "At Risk"
+        : "Pass";
+    };
+
+    let rows;
 
     /* IA-1 */
 
@@ -627,17 +697,10 @@ export function Reports({
             row.courseCode,
 
           "IA-I":
-            row.iaIAbsent
-              ? "ABSENT"
-              : row.iaI,
+            iaValue(row, "iaI"),
 
           "Status":
-            row.iaIAbsent
-              ? "Absent"
-              : row.iaI <
-                IA_THRESHOLD
-                ? "At Risk"
-                : "Pass",
+            iaStatus(row, "iaI"),
         })
       );
     }
@@ -668,17 +731,10 @@ export function Reports({
             row.courseCode,
 
           "IA-II":
-            row.iaIIAbsent
-              ? "ABSENT"
-              : row.iaII,
+            iaValue(row, "iaII"),
 
           "Status":
-            row.iaIIAbsent
-              ? "Absent"
-              : row.iaII <
-                IA_THRESHOLD
-                ? "At Risk"
-                : "Pass",
+            iaStatus(row, "iaII"),
         })
       );
     }
@@ -691,12 +747,8 @@ export function Reports({
       rows = flattened
         .filter(
           row =>
-            (!row.iaIAbsent &&
-              row.iaI <
-              IA_THRESHOLD) ||
-            (!row.iaIIAbsent &&
-              row.iaII <
-              IA_THRESHOLD)
+            isAtRiskForIA(row, "iaI") ||
+            isAtRiskForIA(row, "iaII")
         )
         .map(row => ({
           "Class":
@@ -714,17 +766,16 @@ export function Reports({
             row.courseCode,
 
           "IA-I":
-            row.iaIAbsent
-              ? "ABSENT"
-              : row.iaI,
+            iaValue(row, "iaI"),
+
+          "IA-I Status":
+            iaStatus(row, "iaI"),
 
           "IA-II":
-            row.iaIIAbsent
-              ? "ABSENT"
-              : row.iaII,
+            iaValue(row, "iaII"),
 
-          "Status":
-            "At Risk",
+          "IA-II Status":
+            iaStatus(row, "iaII"),
         }));
     }
 
@@ -752,30 +803,16 @@ export function Reports({
             row.courseCode,
 
           "IA-I":
-            row.iaIAbsent
-              ? "ABSENT"
-              : row.iaI,
+            iaValue(row, "iaI"),
+
+          "IA-I Status":
+            iaStatus(row, "iaI"),
 
           "IA-II":
-            row.iaIIAbsent
-              ? "ABSENT"
-              : row.iaII,
+            iaValue(row, "iaII"),
 
-          "Total":
-            (row.iaI ||
-              0) +
-            (row.iaII ||
-              0),
-
-          "Status":
-            (!row.iaIAbsent &&
-              row.iaI <
-              IA_THRESHOLD) ||
-              (!row.iaIIAbsent &&
-                row.iaII <
-                IA_THRESHOLD)
-              ? "At Risk"
-              : "Pass",
+          "IA-II Status":
+            iaStatus(row, "iaII"),
         })
       );
     }
@@ -798,7 +835,7 @@ export function Reports({
       .toISOString()
       .slice(0, 10);
 
-    let fname = "";
+    let fname;
 
     if (type === "ia1") {
       fname = `class_${cls}_IA1_${date}.xlsx`;

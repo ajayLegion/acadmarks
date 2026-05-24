@@ -3,7 +3,6 @@ import { IA_THRESHOLD } from "../utils/constants";
 import {
     getCourseLoadStatus,
     getStudentCourses,
-    isStudentAtRisk,
 } from "../utils/helpers";
 import { EmptyState } from "./EmptyState";
 
@@ -39,8 +38,6 @@ export function Search({ data, update, notify }) {
 
         return partial ? [partial] : [];
     }, [normalizedSearch, data.students]);
-
-    const atRiskList = filtered.filter(isStudentAtRisk);
 
     const del = id => {
         update(d => {
