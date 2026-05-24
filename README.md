@@ -1,4 +1,4 @@
-# AcadMarks
+# AcadMarks-for students at Reva University
 ![b](view.png)
 A modern web application for managing and tracking Internal Assessment (IA) marks for students at Reva University's Electrical Engineering department. Built with React + Vite, featuring real-time analytics, Excel import/export, and at-risk student detection.
 
